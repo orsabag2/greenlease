@@ -53,7 +53,7 @@ export default function ContractPreviewPage() {
     <div style={{ background: '#e5e7eb', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '40px 0' }}>
       <style>{`
         .contract-container { position: relative; width: 700px; }
-        .page { background: #fff; width: 700px; min-height: 990px; box-shadow: 0 2px 12px rgba(0,0,0,0.10); border-radius: 6px; padding: 32px 32px 32px 32px; font-family: 'Frank Ruhl Libre', 'Noto Sans Hebrew', 'Segoe UI', Arial, sans-serif; color: #222; font-size: 1rem; line-height: 1.5; direction: rtl; position: relative; }
+        .page { background: #fff; width: 700px; min-height: 990px; box-shadow: 0 2px 12px rgba(0,0,0,0.10); border-radius: 6px; padding: 32px 32px 32px 32px; font-family: var(--font-frank-ruhl), 'Noto Sans Hebrew', 'Segoe UI', Arial, sans-serif; color: #222; font-size: 1rem; line-height: 1.5; direction: rtl; position: relative; }
         .contract-title { font-size: 1.4rem; font-weight: bold; margin-bottom: 18px; text-align: center; }
         .contract-preview { font-size: 1rem; font-weight: 500; }
         .section-title { font-weight: bold; font-size: 1.05rem; margin-top: 1.2em; margin-bottom: 0.3em; }

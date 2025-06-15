@@ -7,10 +7,17 @@ import { Question as QType } from '../utils/visibilityLogic';
 // Build steps dynamically from groups
 const GROUPS = [
   {
-    title: 'פרטי המשכיר והשוכר',
+    title: 'פרטי המשכיר',
     ids: [
       'landlordName', 'landlordId', 'landlordAddress', 'landlordPhone',
+      // In the future, support multiple landlords
+    ],
+  },
+  {
+    title: 'פרטי השוכר',
+    ids: [
       'tenantName', 'tenantIdNumber', 'tenantCity', 'tenantPhone',
+      // In the future, support multiple tenants
     ],
   },
   {
@@ -53,6 +60,16 @@ const STEPS = [
   { label: 'תצוגה מקדימה', key: 'preview' },
 ];
 
+// Step explanations for each group/step, בסגנון Lemonade קליל ונעים
+const STEP_EXPLANATIONS: Record<string, string> = {
+  'פרטי המשכיר': 'בוא נתחיל ממך – כמה פרטים אישיים ונוכל להתקדם.',
+  'פרטי השוכר': 'מי הולך לגור בדירה? נוסיף את הפרטים שלהם להסכם.',
+  'פרטי הנכס': 'כמה מילים על הדירה עצמה – מה יש בה, איפה היא נמצאת, וכל מה שחשוב לדעת.',
+  'פרטי השכירות': 'מתי מתחילים, לכמה זמן, וכמה שכר דירה תבקש – כל מה שקשור לשכירות עצמה.',
+  'הסכמות נוספות': 'כמה החלטות קטנות שיכולות לעשות הבדל גדול – חיות, תיקונים, ביטוחים ועוד.',
+  'ביטחונות': 'כדי ששני הצדדים ירגישו בטוחים – נוסיף בטחונות מתאימים להסכם.',
+};
+
 export default function HomePage() {
   const [questions, setQuestions] = useState<QType[]>([]);
   const [template, setTemplate] = useState('');
@@ -70,14 +87,23 @@ export default function HomePage() {
 
   useEffect(() => {
     // Merge contract
-    let merged = contractMerge(template, answers as MergeData);
+    // Flatten first landlord/tenant for contract compatibility
+    let mergedAnswers = { ...answers };
+    if (Array.isArray(answers.landlords) && answers.landlords[0]) {
+      mergedAnswers = { ...mergedAnswers, ...answers.landlords[0] };
+    }
+    if (Array.isArray(answers.tenants) && answers.tenants[0]) {
+      mergedAnswers = { ...mergedAnswers, ...answers.tenants[0] };
+    }
+    // TODO: Support multiple tenants/landlords in contract template
+    let merged = contractMerge(template, mergedAnswers as MergeData);
     // Remove conditional blocks (simple MVP: no #if logic)
     merged = merged.replace(/{{#if [^}]+}}([\s\S]*?){{\/if}}/g, (m, content) => {
       // Check if the condition is met
       const match = m.match(/{{#if ([^}]+)}}/);
       if (!match) return '';
       const key = match[1].trim();
-      if (answers[key]) return content.trim();
+      if (mergedAnswers[key]) return content.trim();
       return '';
     });
     setContract(merged);
@@ -135,9 +161,15 @@ export default function HomePage() {
       <Stepper />
       <div className="w-full max-w-xl bg-white rounded-xl shadow-lg p-8 flex flex-col items-center mt-8" style={{ alignItems: 'stretch' }}>
         {/* Step name/label */}
-        <div className="text-xl font-semibold mb-4 text-center text-gray-900">
+        <div className="text-xl font-semibold mb-4 text-right text-gray-900" dir="rtl">
           {step < grouped.length ? grouped[step]?.title : STEPS[step]?.label}
         </div>
+        {/* Step explanation */}
+        {step < grouped.length && (
+          <div className="text-sm text-gray-600 mb-6 text-right" dir="rtl" style={{ minHeight: 24 }}>
+            {STEP_EXPLANATIONS[grouped[step]?.title] || ''}
+          </div>
+        )}
         {/* Question group steps */}
         {step < grouped.length && (
           <div className="w-full">
@@ -146,6 +178,7 @@ export default function HomePage() {
               answers={answers}
               setAnswers={setAnswers}
               onComplete={() => setStep(step + 1)}
+              onBack={step > 0 ? () => setStep(step - 1) : undefined}
             />
           </div>
         )}
@@ -201,6 +234,12 @@ export default function HomePage() {
                 onClick={() => {
                   if (contract && contract.trim() !== '') {
                     localStorage.setItem('contractText', contract);
+                    // Save all tenants for preview
+                    if (answers.tenants) {
+                      localStorage.setItem('contractTenants', JSON.stringify(answers.tenants));
+                    } else {
+                      localStorage.removeItem('contractTenants');
+                    }
                     window.open('/contract-preview', '_blank');
                   } else {
                     alert('לא ניתן להציג תצוגה מקדימה – יש למלא את כל השדות הנדרשים בטופס.');

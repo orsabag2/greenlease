@@ -19,46 +19,101 @@ interface Props {
 }
 
 const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete, onBack }) => {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(0); // group step (should always be 0, since groups=[current])
   const currentGroup = groups[step];
-  const isLastStep = step === groups.length - 1;
+  const [questionIdx, setQuestionIdx] = useState(0);
 
   if (!currentGroup) {
-    return null; // or a loading indicator if you prefer
+    return null;
   }
+
+  // Detect if this group is for tenants (multi) or landlords (single)
+  const isTenantMulti = currentGroup.title === 'פרטי השוכר';
+  const isLandlord = currentGroup.title === 'פרטי המשכיר';
+  const multiKey = isTenantMulti ? 'tenants' : isLandlord ? 'landlords' : undefined;
+  const multiAnswers = multiKey && Array.isArray(answers[multiKey]) ? (answers[multiKey] as any[]) : [{}];
+
+  // Get visible questions for this group (for current entry)
+  const getVisibleQuestions = (entry: Record<string, unknown>) => currentGroup.questions.filter(q => isQuestionVisible(q, entry));
+
+  // For single-tenant/landlord, just use answers; for multi, use entry
+  let visibleQuestions: any[] = [];
+  let entry: Record<string, unknown> = answers;
+  let onChange: (qid: string, val: unknown) => void = (qid, val) => setAnswers({ ...answers, [qid]: val });
+  let handleAdd: (() => void) | undefined;
+  let handleRemove: ((idx: number) => void) | undefined;
+  if (isTenantMulti) {
+    entry = multiAnswers[0];
+    visibleQuestions = getVisibleQuestions(entry);
+    onChange = (qid, val) => {
+      const updated = multiAnswers.map((e, i) => i === 0 ? { ...e, [String(qid)]: val } : e);
+      setAnswers({ ...answers, [multiKey]: updated });
+    };
+    handleAdd = () => setAnswers({ ...answers, [multiKey]: [...multiAnswers, {}] });
+    handleRemove = (idx) => {
+      if (multiAnswers.length > 1) setAnswers({ ...answers, [multiKey]: multiAnswers.filter((_, i) => i !== idx) });
+    };
+  } else if (isLandlord) {
+    entry = multiAnswers[0];
+    visibleQuestions = getVisibleQuestions(entry);
+    onChange = (qid, val) => {
+      const updated = multiAnswers.map((e, i) => i === 0 ? { ...e, [String(qid)]: val } : e);
+      setAnswers({ ...answers, [multiKey]: updated });
+    };
+  } else {
+    visibleQuestions = getVisibleQuestions(answers);
+    entry = answers;
+    onChange = (qid, val) => setAnswers({ ...answers, [String(qid)]: val });
+  }
+
+  const isFirstQuestion = questionIdx === 0;
+  const isLastQuestion = questionIdx === visibleQuestions.length - 1;
+  const currentQuestion = visibleQuestions[questionIdx];
 
   const handleNext = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLastStep) {
+    if (isLastQuestion) {
       onComplete();
+      setQuestionIdx(0); // reset for next group
     } else {
-      setStep(s => s + 1);
+      setQuestionIdx(q => q + 1);
     }
   };
 
   const handleBack = () => {
-    if (onBack) onBack();
-    else setStep(s => Math.max(0, s - 1));
+    if (!isFirstQuestion) {
+      setQuestionIdx(q => q - 1);
+    } else if (onBack) {
+      setQuestionIdx(0);
+      onBack();
+    }
   };
+
+  if (!currentQuestion) return null;
 
   return (
     <form className="space-y-2" dir="rtl" onSubmit={handleNext}>
-      {currentGroup.questions.map(q =>
-        isQuestionVisible(q, answers) ? (
-          <QuestionField
-            key={q.id}
-            question={q}
-            value={answers[q.id]}
-            onChange={val => setAnswers({ ...answers, [q.id]: val })}
-          />
-        ) : null
+      {/* For multi-tenant, show add/remove only on first question */}
+      {isTenantMulti && questionIdx === 0 && (
+        <div className="mb-2">
+          <button type="button" onClick={handleAdd} className="bg-gray-200 px-4 py-2 rounded font-bold w-full mb-2">הוסף שוכר</button>
+          {multiAnswers.length > 1 && (
+            <button type="button" onClick={() => handleRemove && handleRemove(0)} className="text-red-500 font-bold ml-2">הסר שוכר</button>
+          )}
+        </div>
       )}
+      <QuestionField
+        key={String(currentQuestion.id)}
+        question={currentQuestion}
+        value={entry[currentQuestion.id as string]}
+        onChange={val => onChange(currentQuestion.id as string, val)}
+      />
       <div className="flex gap-2 mt-4">
-        {onBack && (
+        {(onBack || !isFirstQuestion) && (
           <button type="button" onClick={handleBack} className="bg-gray-300 px-4 py-2 rounded w-full font-bold text-lg mt-0">הקודם</button>
         )}
-        <button type="submit" className="w-full py-3 rounded-lg font-bold text-lg" style={{ background: '#38E18E', color: '#fff' }}>
-          הבא
+        <button type="submit" className="w-full py-3 rounded-lg font-bold text-lg" style={{ background: '#38E18E', color: '#124E31' }}>
+          {isLastQuestion ? 'סיום' : 'הבא'}
         </button>
       </div>
     </form>

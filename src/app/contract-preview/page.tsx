@@ -3,10 +3,17 @@ import React, { useEffect, useState } from 'react';
 
 export default function ContractPreviewPage() {
   const [contract, setContract] = useState('');
+  const [tenants, setTenants] = useState<any[]>([]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setContract(localStorage.getItem('contractText') || '');
+      try {
+        const t = JSON.parse(localStorage.getItem('contractTenants') || '[]');
+        setTenants(Array.isArray(t) ? t : []);
+      } catch {
+        setTenants([]);
+      }
     }
   }, []);
 
@@ -33,6 +40,27 @@ export default function ContractPreviewPage() {
     return text;
   }
 
+  function injectAdditionalTenants(contract: string, tenants: any[]) {
+    if (!tenants || tenants.length < 2) return contract;
+    // Find the first occurrence of the main tenant block
+    const regex = /(\nהשוכר: [^\n]+\n\(להלן: "השוכר"\)\n)/;
+    const match = contract.match(regex);
+    if (!match) return contract;
+    const [fullMatch] = match;
+    // Build extra tenants block
+    const extra = tenants.slice(1).map((t, i) => {
+      let line = 'השוכר: ';
+      if (t.tenantName) line += t.tenantName;
+      if (t.tenantIdNumber) line += `, ת"ז ${t.tenantIdNumber}`;
+      if (t.tenantCity) line += `, עיר מגורים: ${t.tenantCity}`;
+      if (t.tenantPhone) line += `, טלפון: ${t.tenantPhone}`;
+      line += '\n(להלן: "השוכר")\n';
+      return line;
+    }).join('');
+    // Insert after the first tenant block
+    return contract.replace(regex, fullMatch + extra);
+  }
+
   return (
     <div style={{ background: '#e5e7eb', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: '40px 0' }}>
       <style>{`
@@ -43,7 +71,7 @@ export default function ContractPreviewPage() {
           box-shadow: 0 4px 24px rgba(0,0,0,0.12);
           border-radius: 8px;
           padding: 60px 70px 60px 70px;
-          font-family: 'Frank Ruhl Libre', 'Noto Sans Hebrew', 'Segoe UI', Arial, sans-serif;
+          font-family: var(--font-frank-ruhl), 'Noto Sans Hebrew', 'Segoe UI', Arial, sans-serif;
           color: #222;
           font-size: 1.1rem;
           line-height: 1.4;
@@ -84,7 +112,7 @@ export default function ContractPreviewPage() {
         <button className="print-btn" onClick={() => window.print()}>הדפס</button>
         <div className="page">
           <div className="contract-title">הסכם שכירות למגורים (שכירות בלתי מוגנת)</div>
-          <div className="contract-preview" dangerouslySetInnerHTML={{ __html: contract ? enhanceContract(contract).replace(/\n/g, '<br/>') : '<span style=\"color:red\">לא נמצא תוכן חוזה להצגה</span>' }} />
+          <div className="contract-preview" dangerouslySetInnerHTML={{ __html: contract ? enhanceContract(injectAdditionalTenants(contract, tenants)).replace(/\n/g, '<br/>') : '<span style=\"color:red\">לא נמצא תוכן חוזה להצגה</span>' }} />
         </div>
       </div>
     </div>

@@ -12,6 +12,17 @@ export type MergeData = Record<string, string | number | undefined | null>;
 export default function contractMerge(template: string, data: MergeData): string {
   let processed = template;
 
+  function formatDateDDMMYYYY(dateStr?: string | null): string {
+    if (!dateStr) return '';
+    // Accepts yyyy-mm-dd or ISO string
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
   // Custom logic for parkingClause
   processed = processed.replace(/{{parkingClause}}/g, () => {
     if (data['hasParking'] === 'כן') {
@@ -35,7 +46,10 @@ export default function contractMerge(template: string, data: MergeData): string
     if (data['hasStorage'] === 'כן') {
       let clause = 'הדירה כוללת מחסן';
       if (data['storageNumber']) {
-        clause += `, מספר המחסן: ${data['storageNumber']}`;
+        const sn = String(data['storageNumber']).trim();
+        if (sn) {
+          clause += `, מספר המחסן: ${sn}`;
+        }
       }
       clause += '.';
       return clause;
@@ -85,7 +99,12 @@ export default function contractMerge(template: string, data: MergeData): string
     }
     // Replace placeholders with values (leave empty if not answered)
     const replaced = line.replace(/{{(.*?)}}/g, (_, key) => {
-      const value = data[key.trim()];
+      const k = key.trim();
+      let value = data[k];
+      // Format date fields
+      if (["moveInDate","rentEndDate","agreementDate"].includes(k)) {
+        value = formatDateDDMMYYYY(value as string);
+      }
       return value !== undefined && value !== null && value !== '' ? String(value) : '';
     });
     processedLines.push(replaced);
