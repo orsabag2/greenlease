@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 
 export default function ContractPreviewPage() {
   const [contract, setContract] = useState('');
-  const [tenants, setTenants] = useState<any[]>([]);
+  const [tenants, setTenants] = useState<Record<string, unknown>[]>([]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -40,7 +40,7 @@ export default function ContractPreviewPage() {
     return text;
   }
 
-  function injectAdditionalTenants(contract: string, tenants: any[]) {
+  function injectAdditionalTenants(contract: string, tenants: Record<string, unknown>[]) {
     if (!tenants || tenants.length < 2) return contract;
     // Find the first occurrence of the main tenant block
     const regex = /(\nהשוכר: [^\n]+\n\(להלן: "השוכר"\)\n)/;
@@ -48,7 +48,7 @@ export default function ContractPreviewPage() {
     if (!match) return contract;
     const [fullMatch] = match;
     // Build extra tenants block
-    const extra = tenants.slice(1).map((t, i) => {
+    const extra = tenants.slice(1).map((t) => {
       let line = 'השוכר: ';
       if (t.tenantName) line += t.tenantName;
       if (t.tenantIdNumber) line += `, ת"ז ${t.tenantIdNumber}`;

@@ -19,8 +19,7 @@ interface Props {
 }
 
 const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete, onBack }) => {
-  const [step, setStep] = useState(0); // group step (should always be 0, since groups=[current])
-  const currentGroup = groups[step];
+  const currentGroup = groups[0];
   const [questionIdx, setQuestionIdx] = useState(0);
 
   if (!currentGroup) {
@@ -31,13 +30,13 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
   const isTenantMulti = currentGroup.title === 'פרטי השוכר';
   const isLandlord = currentGroup.title === 'פרטי המשכיר';
   const multiKey = isTenantMulti ? 'tenants' : isLandlord ? 'landlords' : undefined;
-  const multiAnswers = multiKey && Array.isArray(answers[multiKey]) ? (answers[multiKey] as any[]) : [{}];
+  const multiAnswers = multiKey && typeof multiKey === 'string' && Array.isArray(answers[multiKey]) ? (answers[multiKey] as Record<string, unknown>[]) : [{}];
 
   // Get visible questions for this group (for current entry)
   const getVisibleQuestions = (entry: Record<string, unknown>) => currentGroup.questions.filter(q => isQuestionVisible(q, entry));
 
   // For single-tenant/landlord, just use answers; for multi, use entry
-  let visibleQuestions: any[] = [];
+  let visibleQuestions: QType[] = [];
   let entry: Record<string, unknown> = answers;
   let onChange: (qid: string, val: unknown) => void = (qid, val) => setAnswers({ ...answers, [qid]: val });
   let handleAdd: (() => void) | undefined;
@@ -46,19 +45,29 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
     entry = multiAnswers[0];
     visibleQuestions = getVisibleQuestions(entry);
     onChange = (qid, val) => {
-      const updated = multiAnswers.map((e, i) => i === 0 ? { ...e, [String(qid)]: val } : e);
-      setAnswers({ ...answers, [multiKey]: updated });
+      if (typeof multiKey === 'string') {
+        const updated = multiAnswers.map((e, i) => i === 0 ? { ...e, [String(qid)]: val } : e);
+        setAnswers({ ...answers, [multiKey]: updated });
+      }
     };
-    handleAdd = () => setAnswers({ ...answers, [multiKey]: [...multiAnswers, {}] });
+    handleAdd = () => {
+      if (typeof multiKey === 'string') {
+        setAnswers({ ...answers, [multiKey]: [...multiAnswers, {}] });
+      }
+    };
     handleRemove = (idx) => {
-      if (multiAnswers.length > 1) setAnswers({ ...answers, [multiKey]: multiAnswers.filter((_, i) => i !== idx) });
+      if (typeof multiKey === 'string' && multiAnswers.length > 1) {
+        setAnswers({ ...answers, [multiKey]: multiAnswers.filter((_, i) => i !== idx) });
+      }
     };
   } else if (isLandlord) {
     entry = multiAnswers[0];
     visibleQuestions = getVisibleQuestions(entry);
     onChange = (qid, val) => {
-      const updated = multiAnswers.map((e, i) => i === 0 ? { ...e, [String(qid)]: val } : e);
-      setAnswers({ ...answers, [multiKey]: updated });
+      if (typeof multiKey === 'string') {
+        const updated = multiAnswers.map((e, i) => i === 0 ? { ...e, [String(qid)]: val } : e);
+        setAnswers({ ...answers, [multiKey]: updated });
+      }
     };
   } else {
     visibleQuestions = getVisibleQuestions(answers);
