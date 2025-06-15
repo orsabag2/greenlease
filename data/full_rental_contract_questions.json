@@ -1,0 +1,67 @@
+[
+  { "id": "landlordName", "label": "שם המשכיר", "type": "text" },
+  { "id": "landlordId", "label": "תעודת זהות המשכיר", "type": "text" },
+  { "id": "landlordAddress", "label": "כתובת המשכיר", "type": "text" },
+  { "id": "landlordPhone", "label": "טלפון המשכיר", "type": "text" },
+
+  { "id": "tenantName", "label": "שם השוכר", "type": "text" },
+  { "id": "tenantIdNumber", "label": "תעודת זהות השוכר", "type": "text" },
+  { "id": "tenantCity", "label": "עיר מגורי השוכר", "type": "text" },
+  { "id": "tenantPhone", "label": "טלפון השוכר", "type": "text" },
+
+  { "id": "street", "label": "רחוב הדירה", "type": "text" },
+  { "id": "apartmentNumber", "label": "מספר דירה", "type": "text" },
+  { "id": "floor", "label": "קומה", "type": "text" },
+  { "id": "entrance", "label": "כניסה", "type": "text" },
+  { "id": "propertyCity", "label": "עיר הדירה", "type": "text" },
+  { "id": "apartmentRooms", "label": "מספר חדרים בדירה", "type": "text" },
+  { "id": "apartmentFeatures", "label": "פריטים כלולים בדירה", "type": "text" },
+  { "id": "hasParking", "label": "האם יש חניה?", "type": "select", "options": ["כן", "לא"] },
+  { "id": "parkingLotCount", "label": "כמה חניות יש בדירה?", "type": "select", "options": ["1", "2", "3", "4", "5"], "visibleIf": { "hasParking": "כן" } },
+  { "id": "parkingNumber", "label": "מספרי החניה (אם יש יותר מאחת, הפרד בפסיק)", "type": "text", "visibleIf": { "hasParking": "כן" } },
+  { "id": "hasStorage", "label": "האם יש מחסן?", "type": "select", "options": ["כן", "לא"] },
+  { "id": "storageNumber", "label": "מספר מחסן", "type": "text", "visibleIf": { "hasStorage": "כן" } },
+
+  { "id": "moveInDate", "label": "תאריך תחילת השכירות", "type": "text" },
+  { "id": "rentEndDate", "label": "תאריך סיום השכירות", "type": "text" },
+  { "id": "hasExtensionOption", "label": "האם יש אופציה להארכת השכירות?", "type": "select", "options": ["כן", "לא"] },
+  { "id": "extensionDuration", "label": "משך תקופת הארכה", "type": "text", "visibleIf": { "hasExtensionOption": "כן" } },
+  { "id": "extensionNoticeDays", "label": "מספר ימי הודעה מראש לאופציה", "type": "text", "visibleIf": { "hasExtensionOption": "כן" } },
+  { "id": "allowEarlyExit", "label": "האם מותרת יציאה מוקדמת?", "type": "select", "options": ["כן", "לא"] },
+  { "id": "earlyExitCompensation", "label": "פיצוי מוסכם ליציאה מוקדמת", "type": "text", "visibleIf": { "allowEarlyExit": "כן" } },
+  { "id": "earlyExitCustomCompensation", "label": "פיצוי אחר ליציאה מוקדמת (אם נבחר)", "type": "text", "visibleIf": { "allowEarlyExit": "כן" } },
+
+  { "id": "rentalPurpose", "label": "מטרת השכירות", "type": "text" },
+
+  { "id": "monthlyRent", "label": "דמי שכירות חודשיים", "type": "text" },
+  { "id": "paymentMethod", "label": "אופן תשלום השכירות", "type": "select", "options": ["העברה בנקאית", "צ'ק", "מזומן", "אחר"] },
+
+  { "id": "allowSelfRepair", "label": "האם לאפשר לשוכר תיקון עצמאי?", "type": "select", "options": ["כן", "לא"] },
+
+  { "id": "allowPets", "label": "האם מותר להחזיק חיות מחמד?", "type": "select", "options": ["כן", "לא"] },
+  { "id": "allowSublet", "label": "האם מותרת שכירות משנה/שותפים?", "type": "select", "options": ["כן", "לא"] },
+
+  { "id": "insuranceTypes", "label": "אילו סוגי ביטוחים נדרשים?", "type": "text" },
+
+  { "id": "exitPaintColor", "label": "צבע לצביעת הדירה ביציאה", "type": "text" },
+
+  { "id": "guaranteeAmount", "label": "סכום שטר החוב", "type": "text" },
+  { "id": "guarantorsCount", "label": "כמה ערבים נדרשים?", "type": "select", "options": ["0", "1", "2"] },
+  { "id": "guarantor1Name", "label": "שם ערב 1", "type": "text", "visibleIf": { "guarantorsCount": "1" } },
+  { "id": "guarantor1Id", "label": "תעודת זהות ערב 1", "type": "text", "visibleIf": { "guarantorsCount": "1" } },
+  { "id": "guarantor1Address", "label": "כתובת ערב 1", "type": "text", "visibleIf": { "guarantorsCount": "1" } },
+  { "id": "guarantor1Phone", "label": "טלפון ערב 1", "type": "text", "visibleIf": { "guarantorsCount": "1" } },
+  { "id": "guarantor2Name", "label": "שם ערב 2", "type": "text", "visibleIf": { "guarantorsCount": "2" } },
+  { "id": "guarantor2Id", "label": "תעודת זהות ערב 2", "type": "text", "visibleIf": { "guarantorsCount": "2" } },
+  { "id": "guarantor2Address", "label": "כתובת ערב 2", "type": "text", "visibleIf": { "guarantorsCount": "2" } },
+  { "id": "guarantor2Phone", "label": "טלפון ערב 2", "type": "text", "visibleIf": { "guarantorsCount": "2" } },
+  { "id": "depositAmount", "label": "סכום פיקדון", "type": "text" },
+  { "id": "hasBankGuarantee", "label": "האם יש ערבות בנקאית?", "type": "select", "options": ["כן", "לא"] },
+  { "id": "bankGuaranteeAmount", "label": "סכום ערבות בנקאית", "type": "text", "visibleIf": { "hasBankGuarantee": "כן" } },
+  { "id": "guaranteeReturnDays", "label": "תוך כמה ימים יושבו הבטחונות?", "type": "text" },
+
+  { "id": "allowSign", "label": "האם לאפשר למשכיר להציב שלט?", "type": "select", "options": ["כן", "לא"] },
+
+  { "id": "agreementDate", "label": "תאריך החתימה על ההסכם", "type": "text" },
+  { "id": "agreementCity", "label": "עיר החתימה על ההסכם", "type": "text" }
+] 
