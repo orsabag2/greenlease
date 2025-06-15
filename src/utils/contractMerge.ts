@@ -84,7 +84,7 @@ export default function contractMerge(template: string, data: MergeData): string
       if (allEmpty) continue;
     }
     // Replace placeholders with values (leave empty if not answered)
-    let replaced = line.replace(/{{(.*?)}}/g, (_, key) => {
+    const replaced = line.replace(/{{(.*?)}}/g, (_, key) => {
       const value = data[key.trim()];
       return value !== undefined && value !== null && value !== '' ? String(value) : '';
     });

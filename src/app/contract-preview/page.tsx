@@ -80,7 +80,6 @@ export default function ContractPreviewPage() {
         }
         .print-btn:hover { background: #1d4ed8; }
       `}</style>
-      <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700&display=swap" rel="stylesheet" />
       <div style={{ position: 'relative', width: 794 }}>
         <button className="print-btn" onClick={() => window.print()}>הדפס</button>
         <div className="page">

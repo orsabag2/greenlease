@@ -1,19 +1,18 @@
-// Add module declaration for html2pdf.js if types are missing
-// @ts-ignore
+// Add this module declaration to suppress TS error for html2pdf.js
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-expect-error
 import html2pdf from 'html2pdf.js';
 import React, { useEffect, useState } from 'react';
 
 // Extend the Window interface to include html2pdf
 declare global {
   interface Window {
-    html2pdf?: any;
+    html2pdf?: unknown;
   }
 }
 
 // Declare html2pdf on the window object for TypeScript
-// @ts-ignore
 if (typeof window !== 'undefined') {
-  // @ts-ignore
   window.html2pdf = window.html2pdf || undefined;
 }
 
@@ -64,7 +63,6 @@ export default function ContractPreviewPage() {
         .action-btn:hover { background: #1d4ed8; }
         .action-btn.pdf { right: 140px; left: auto; }
       `}</style>
-      <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700&display=swap" rel="stylesheet" />
       <div className="contract-container">
         <button className="action-btn" onClick={() => window.print()}>הדפס</button>
         <button className="action-btn pdf" onClick={handleDownloadPDF}>הורד PDF</button>

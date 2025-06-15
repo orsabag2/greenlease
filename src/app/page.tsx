@@ -1,12 +1,8 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import FormRenderer from '../components/FormRenderer';
-import ContractPreview from '../components/ContractPreview';
 import contractMerge, { MergeData } from '../utils/contractMerge';
-import { db } from '../utils/firebase';
-import { collection, addDoc } from 'firebase/firestore';
 import { Question as QType } from '../utils/visibilityLogic';
-import { useRouter } from 'next/navigation';
 
 // Build steps dynamically from groups
 const GROUPS = [
@@ -62,10 +58,7 @@ export default function HomePage() {
   const [template, setTemplate] = useState('');
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [contract, setContract] = useState('');
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
-  const [showPayment, setShowPayment] = useState(false);
   const [step, setStep] = useState(0);
-  const router = useRouter();
 
   useEffect(() => {
     // Load questions and template
@@ -89,73 +82,6 @@ export default function HomePage() {
     });
     setContract(merged);
   }, [template, answers]);
-
-  // PDF download (simple print for MVP)
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleSave = async () => {
-    setSaveStatus('saving');
-    try {
-      await addDoc(collection(db, 'responses'), {
-        answers,
-        createdAt: new Date().toISOString(),
-      });
-      setSaveStatus('success');
-      setTimeout(() => setSaveStatus('idle'), 2000);
-    } catch {
-      setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 2000);
-    }
-  };
-
-  const handleOpenPrintPreview = () => {
-    if (!contract || contract.trim() === '') {
-      alert('לא ניתן להציג תצוגה מקדימה – יש למלא את כל השדות הנדרשים בטופס.');
-      return;
-    }
-    const previewWindow = window.open('', '_blank');
-    if (previewWindow) {
-      // Use JSON.stringify to safely pass contract content
-      const contractJson = JSON.stringify(contract);
-      previewWindow.document.write(`
-        <div style="background: #e5e7eb; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 40px 0;">
-          <style>
-            .page { background: #fff; width: 794px; min-height: 1123px; box-shadow: 0 4px 24px rgba(0,0,0,0.12); border-radius: 8px; padding: 60px 70px 60px 70px; font-family: 'Frank Ruhl Libre', 'Noto Sans Hebrew', 'Segoe UI', Arial, sans-serif; color: #222; font-size: 1.1rem; line-height: 1.8; direction: rtl; position: relative; }
-            .contract-title { font-size: 2rem; font-weight: bold; margin-bottom: 32px; text-align: center; }
-            .contract-preview { font-size: 1.1rem; font-weight: 500; }
-            .section-title { font-weight: bold; font-size: 1.15rem; margin-top: 2.2em; margin-bottom: 0.7em; }
-            .highlight { font-weight: bold; color: #2563eb; }
-            @media print { button { display: none; } @page { margin: 0; } body { margin: 0; } }
-            .print-btn { position: fixed; top: 24px; right: 24px; z-index: 1000; padding: 12px 28px; font-size: 1.1rem; background: #2563eb; color: #fff; border: none; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); cursor: pointer; transition: background 0.2s; margin-left: 12px; }
-            .print-btn:hover { background: #1d4ed8; }
-          </style>
-          <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700&display=swap" rel="stylesheet">
-          <div style="position: relative; width: 794px;">
-            <button class="print-btn" onclick="window.print()">הדפס</button>
-            <div class="page">
-              <div class="contract-title">הסכם שכירות</div>
-              <div class="contract-preview" id="contract-content"></div>
-            </div>
-          </div>
-          <script>
-            window.contractContent = ${contractJson};
-            function escapeRegExp(string) { return string.replace(/[.*+?^$()|[\\]\\]/g, '\\$&'); }
-            function enhanceContract(text) {
-              text = text.replace(/(\d+\.[^<\n]*)/g, function(m) { return m.replace(/^(\d+\.)/, '<span class=\"section-title\">$1</span>'); });
-              const keywords = ['הואיל', 'המשכיר', 'השוכר', 'הצדדים', 'הסכם', 'הנכס', 'הבטחונות', 'הערבים', 'הפיקדון', 'המחסן', 'החניה'];
-              keywords.forEach(word => { const re = new RegExp('(?<![\\w-])(' + escapeRegExp(word) + ')(?![\\w-])', 'g'); text = text.replace(re, '<span class=\"highlight\">$1</span>'); });
-              return text;
-            }
-            const content = window.contractContent && window.contractContent.trim() !== '' ? enhanceContract(window.contractContent.replace(/\n/g, '<br/>')) : '<span style=\"color:red\">לא נמצא תוכן חוזה להצגה</span>';
-            document.getElementById('contract-content').innerHTML = content;
-          </script>
-        </div>
-      `);
-      previewWindow.document.close();
-    }
-  };
 
   // Group questions for steps
   const grouped = GROUPS.map(group => ({
