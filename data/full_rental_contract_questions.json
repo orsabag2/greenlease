@@ -62,6 +62,7 @@
 
   { "id": "allowSign", "label": "האם תרצה לאפשר לשים שלט למכירה/השכרה בדירה שלך? ", "type": "select", "options": ["כן", "לא"] },
 
-  { "id": "agreementDate", "label": "מתי תרצה לציין שנחתם ההסכם? ", "type": "date", "placeholder": "לדוגמה: 2025-07-01" },
-  { "id": "agreementCity", "label": "באיזו עיר תרצה לציין שנחתם ההסכם? ", "type": "text", "placeholder": "לדוגמה: תל אביב" }
+  { "id": "includeAgreementDetails", "label": "האם תרצה להוסיף לחוזה את מיקום ותאריך החתימת חוזה?", "type": "select", "options": ["כן", "לא"] },
+  { "id": "agreementDate", "label": "מתי תרצה לציין שנחתם ההסכם? ", "type": "date", "placeholder": "לדוגמה: 2025-07-01", "visibleIf": { "includeAgreementDetails": "כן" } },
+  { "id": "agreementCity", "label": "באיזו עיר תרצה לציין שנחתם ההסכם? ", "type": "text", "placeholder": "לדוגמה: תל אביב", "visibleIf": { "includeAgreementDetails": "כן" } }
 ]

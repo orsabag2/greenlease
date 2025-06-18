@@ -1,5 +1,16 @@
 export type MergeData = Record<string, string | number | undefined | null>;
 
+function formatDateDDMMYYYY(dateStr?: string | null): string {
+  if (!dateStr) return '';
+  // Accepts yyyy-mm-dd or ISO string
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 /**
  * Replaces {{placeholders}} in the template with values from data.
  * Removes lines where all placeholders are unanswered and renumbers visible numbered clauses.
@@ -12,49 +23,81 @@ export type MergeData = Record<string, string | number | undefined | null>;
 export default function contractMerge(template: string, data: MergeData): string {
   let processed = template;
 
-  function formatDateDDMMYYYY(dateStr?: string | null): string {
-    if (!dateStr) return '';
-    // Accepts yyyy-mm-dd or ISO string
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
-  }
+  // Custom logic for initial section
+  processed = processed.replace(/בין:\nהמשכיר: {{landlordName}}, ת"ז {{landlordId}}, כתובת: {{landlordAddress}}, טלפון: {{landlordPhone}}\n\(להלן: "המשכיר"\)\n\nלבין\nהשוכר: {{tenantName}}, ת"ז {{tenantIdNumber}}, עיר מגורים: {{tenantCity}}, טלפון: {{tenantPhone}}\n\(להלן: "השוכר"\)/g, () => {
+    const landlordDetails = [
+      data['landlordName'] ? `<strong>${data['landlordName']}</strong>` : '',
+      data['landlordId'] ? `ת"ז <strong>${data['landlordId']}</strong>` : '',
+      data['landlordAddress'] ? `כתובת: <strong>${data['landlordAddress']}</strong>` : '',
+      data['landlordPhone'] ? `טלפון: <strong>${data['landlordPhone']}</strong>` : ''
+    ].filter(Boolean).join(', ');
 
-  // Custom logic for parkingClause
-  processed = processed.replace(/{{parkingClause}}/g, () => {
-    if (data['hasParking'] === 'כן') {
-      let clause = 'הדירה כוללת חניה';
+    const tenantDetails = [
+      data['tenantName'] ? `<strong>${data['tenantName']}</strong>` : '',
+      data['tenantIdNumber'] ? `ת"ז <strong>${data['tenantIdNumber']}</strong>` : '',
+      data['tenantCity'] ? `עיר מגורים: <strong>${data['tenantCity']}</strong>` : '',
+      data['tenantPhone'] ? `טלפון: <strong>${data['tenantPhone']}</strong>` : ''
+    ].filter(Boolean).join(', ');
+
+    return `בין:
+המשכיר: ${landlordDetails}
+(להלן: "המשכיר")
+
+לבין:
+השוכר: ${tenantDetails}
+(להלן: "השוכר")`;
+  });
+
+  // Remove sections for parking and storage if they're not included
+  if (data['hasParking'] !== 'כן') {
+    processed = processed.replace(/1\.4 מספר החניה: {{parkingClause}}\n/g, '');
+  } else {
+    // Custom logic for parkingClause
+    processed = processed.replace(/1\.4 מספר החניה: {{parkingClause}}/g, () => {
+      let clause = '1.4 הדירה כוללת חניה';
       if (data['parkingNumber']) {
         const numbers = String(data['parkingNumber']).split(',').map(s => s.trim()).filter(Boolean);
-        if (numbers.length > 1 || (data['parkingAmount'] && Number(data['parkingAmount']) > 1)) {
-          clause += `, מספרי החניה: ${numbers.join(', ')}`;
+        if (numbers.length > 1 || (data['parkingLotCount'] && Number(data['parkingLotCount']) > 1)) {
+          clause += `, מספרי החניה: <strong>${numbers.join(', ')}</strong>`;
         } else {
-          clause += `, מספר החניה: ${numbers[0] || ''}`;
+          clause += `, מספר החניה: <strong>${numbers[0] || ''}</strong>`;
         }
       }
       clause += '.';
       return clause;
-    }
-    return '';
-  });
+    });
+  }
 
-  // Custom logic for storageClause
-  processed = processed.replace(/{{storageClause}}/g, () => {
-    if (data['hasStorage'] === 'כן') {
-      let clause = 'הדירה כוללת מחסן';
+  if (data['hasStorage'] !== 'כן') {
+    processed = processed.replace(/1\.5 מספר המחסן: {{storageClause}}\n/g, '');
+  } else {
+    // Custom logic for storageClause
+    processed = processed.replace(/1\.5 מספר המחסן: {{storageClause}}/g, () => {
+      let clause = '1.5 הדירה כוללת מחסן';
       if (data['storageNumber']) {
         const sn = String(data['storageNumber']).trim();
         if (sn) {
-          clause += `, מספר המחסן: ${sn}`;
+          clause += `, מספר המחסן: <strong>${sn}</strong>`;
         }
       }
       clause += '.';
       return clause;
-    }
-    return '';
+    });
+  }
+
+  // Custom logic for section 8 - pets and sublet
+  processed = processed.replace(/8\. שימושים, חיות מחמד ושכירות משנה\n\n8\.1 השוכר לא יחזיק במושכר חיות מחמד אלא אם צוין אחרת בשאלה הרלוונטית בשאלון\.\n8\.2 השוכר לא יעביר זכויות, לא ישכיר בשכירות משנה, ולא יאחסן או יארח שותפים – אלא אם ניתנה הסכמה מראש ובכתב מאת המשכיר\./g, () => {
+    console.log('Section 8 data:', { allowPets: data['allowPets'], allowSublet: data['allowSublet'] });
+    const petsAllowed = data['allowPets'] === 'כן';
+    const subletAllowed = data['allowSublet'] === 'כן';
+
+    const section = `8. שימושים, חיות מחמד ושכירות משנה
+
+8.1 ${petsAllowed ? 'השוכר רשאי להחזיק חיות מחמד במושכר.' : 'השוכר לא יחזיק במושכר חיות מחמד.'}
+8.2 ${subletAllowed ? 'השוכר רשאי להשכיר בשכירות משנה ולארח שותפים, בכפוף להסכמת המשכיר מראש ובכתב.' : 'השוכר לא יעביר זכויות, לא ישכיר בשכירות משנה, ולא יאחסן או יארח שותפים.'}`;
+
+    console.log('Generated section 8:', section);
+    return section;
   });
 
   // Custom logic for guarantorsSection
@@ -74,75 +117,181 @@ export default function contractMerge(template: string, data: MergeData): string
     return '';
   });
 
-  // Remove label+placeholder (e.g., ', LABEL: {{id}}') if the value is empty, for all fields
-  // Match patterns like ', LABEL: {{id}}' or ' LABEL: {{id}}' or ' LABEL {{id}}'
-  processed = processed.replace(/([,\s]*)((?:[\u0590-\u05FFa-zA-Z0-9_\-"' ]+):?\s*{{([a-zA-Z0-9_]+)}})/g, (match, prefix, labelAndPlaceholder, id) => {
-    const value = data[id];
-    return (value === undefined || value === null || value === '') ? '' : prefix + labelAndPlaceholder;
-  });
+  // First, let's identify which sections should be included
+  const shouldIncludeParking = data['hasParking'] === 'כן';
+  const shouldIncludeStorage = data['hasStorage'] === 'כן';
+  const hasExtensionOption = data['hasExtensionOption'] === 'כן';
+  const allowEarlyExit = data['allowEarlyExit'] === 'כן';
 
-  // Split template into lines for per-line processing
-  const originalLines = processed.split('\n');
-  let processedLines: string[] = [];
+  // Split into lines for processing
+  let lines = processed.split('\n');
 
-  for (const line of originalLines) {
-    // Find all placeholders in the line
-    const matches = [...line.matchAll(/{{(.*?)}}/g)];
-    if (matches.length > 0) {
-      // Remove line only if ALL placeholders are empty
-      const allEmpty = matches.every(match => {
-        const key = match[1].trim();
-        const value = data[key];
-        return value === undefined || value === null || value === '';
-      });
-      if (allEmpty) continue;
-    }
-    // Replace placeholders with values (leave empty if not answered)
-    const replaced = line.replace(/{{(.*?)}}/g, (_, key) => {
-      const k = key.trim();
-      let value = data[k];
-      // Format date fields
-      if (["moveInDate","rentEndDate","agreementDate"].includes(k)) {
-        value = formatDateDDMMYYYY(value as string);
-      }
-      return value !== undefined && value !== null && value !== '' ? String(value) : '';
-    });
-    processedLines.push(replaced);
-  }
-
-  // Remove numbered clause lines that are now empty or only contain number, whitespace, and punctuation
-  processedLines = processedLines.filter(line => {
-    // Remove lines like '16.' or '16.   '
-    if (/^\d+\.\s*$/.test(line)) return false;
-    // Existing logic for subclauses
-    const numbered = line.match(/^(\d+\.\d+)\s*(.*)$/);
-    if (numbered) {
-      const rest = numbered[2].replace(/[\s.,:;"'״׳-]+/g, '');
-      return rest.length > 0;
-    }
+  // Filter out sections based on conditions
+  lines = lines.filter(line => {
+    // Filter out parking if not included
+    if (!shouldIncludeParking && line.includes('1.4 מספר החניה')) return false;
+    
+    // Filter out storage if not included
+    if (!shouldIncludeStorage && line.includes('1.5 מספר המחסן')) return false;
+    
+    // Filter out extension sections if not selected
+    if (!hasExtensionOption && (
+      line.includes('2.5 הארכת תקופת השכירות') ||
+      line.includes('2.6 למשכיר תינתן אופציה להארכת תקופת השכירות') ||
+      line.includes('2.7 על השוכר למסור הודעה מראש')
+    )) return false;
+    
+    // Filter out early exit section if not selected
+    if (!allowEarlyExit && (
+      line.includes('יציאה מוקדמת תותר ככל שנבחרה האפשרות לכך') ||
+      line.includes('(א) ימציא שוכר חלופי') ||
+      line.includes('(ב) ישלם פיצוי מוסכם') ||
+      line.includes('(ג) יעמוד בכל התחייבויותיו')
+    )) return false;
+    
     return true;
   });
 
-  // Renumber only subclauses (e.g., 4.1, 4.2, ...) to be sequential within each section
-  let currentSection: string | null = null;
-  let subIndex = 1;
-  processedLines = processedLines.map(line => {
-    // Match section headers like '4. דמי שכירות ואופן תשלום' (but not subclauses)
-    const sectionHeader = line.match(/^(\d+)\.\s/);
-    if (sectionHeader) {
-      currentSection = sectionHeader[1];
-      subIndex = 1;
+  // Add no-extension statement if extension option is disabled
+  if (!hasExtensionOption) {
+    // Find the position to insert the new clause
+    const insertIndex = lines.findIndex(line => line.includes('2.4')) + 1;
+    if (insertIndex > 0) {
+      lines.splice(insertIndex, 0, '2.5 הצדדים מסכימים כי תקופת השכירות הינה קבועה וסופית, וכי לא תתאפשר הארכתה מעבר למועד הסיום הנקוב לעיל.');
+    }
+  }
+
+  // Renumber sections if needed
+  if (!shouldIncludeParking || !shouldIncludeStorage) {
+    let currentMainSection = 1;
+    let currentSubSection = 0;
+    
+    lines = lines.map(line => {
+      // Match section numbers (e.g., "1.4", "1.5", etc.)
+      const sectionMatch = line.match(/^(\d+)\.(\d+)/);
+      if (sectionMatch) {
+        const mainSection = parseInt(sectionMatch[1]);
+        if (mainSection === currentMainSection) {
+          currentSubSection++;
+          // Replace the old section number with the new one
+          return line.replace(/^\d+\.\d+/, `${currentMainSection}.${currentSubSection}`);
+        } else {
+          // We've moved to a new main section
+          currentMainSection = mainSection;
+          currentSubSection = 1;
+          return line;
+        }
+      }
       return line;
+    });
+  }
+
+  processed = lines.join('\n');
+
+  // Replace all remaining placeholders with values
+  processed = processed.replace(/{{([^}]+)}}/g, (match, key) => {
+    const value = data[key.trim()];
+    let displayValue;
+    if (value === undefined || value === null || value === '') {
+      displayValue = '-';  // Return dash for empty values
+    } else {
+      // Format dates
+      if (["moveInDate", "rentEndDate", "agreementDate"].includes(key.trim())) {
+        displayValue = formatDateDDMMYYYY(value as string) || '-';
+      } else {
+        displayValue = String(value);
+      }
     }
-    // Match subclauses like '4.2 ...'
-    const subMatch = line.match(/^(\d+)\.(\d+)\s/);
-    if (subMatch && currentSection && subMatch[1] === currentSection) {
-      const newLine = line.replace(/^(\d+)\.(\d+)/, `${currentSection}.${subIndex}`);
-      subIndex++;
-      return newLine;
-    }
-    return line;
+    // Wrap the value in bold tags
+    return `<strong>${displayValue}</strong>`;
   });
 
-  return processedLines.join('\n');
+  // Split into lines and process each line for final cleanup
+  const finalLines = processed.split('\n').filter(line => {
+    // Keep non-empty lines and lines that aren't just numbers and dots
+    const trimmed = line.trim();
+    if (!trimmed) return false;
+    if (/^\d+\.\s*$/.test(trimmed)) return false;
+    return true;
+  });
+
+  // Join lines with proper spacing
+  return finalLines.join('\n\n');
+}
+
+function generateSummarySection(data: MergeData): string {
+  const summary = [
+    'סיכום פרטי המושכר:',
+    '',
+    `• כתובת: ${data.street ?? '-'} ${data.apartmentNumber ?? ''}, קומה ${data.floor ?? '-'}, כניסה ${data.entrance ?? '-'}, ${data.propertyCity ?? '-'}`,
+    `• מספר חדרים: ${data.apartmentRooms ?? '-'}`,
+    `• תכולת הדירה: ${data.apartmentFeatures ?? '-'}`,
+  ];
+
+  // Add parking details
+  if (data.hasParking === 'כן') {
+    const parkingDetails = data.parkingNumber ? 
+      `• חניה: כן, מספר${Number(data.parkingLotCount) > 1 ? 'י' : ''} חניה ${data.parkingNumber}` :
+      '• חניה: כן';
+    summary.push(parkingDetails);
+  } else {
+    summary.push('• חניה: לא');
+  }
+
+  // Add storage details
+  if (data.hasStorage === 'כן') {
+    const storageDetails = data.storageNumber ? 
+      `• מחסן: כן, מספר מחסן ${data.storageNumber}` :
+      '• מחסן: כן';
+    summary.push(storageDetails);
+  } else {
+    summary.push('• מחסן: לא');
+  }
+
+  // Add rental period
+  if (data.moveInDate || data.rentEndDate) {
+    summary.push(`• תקופת השכירות: ${formatDateDDMMYYYY(data.moveInDate as string)} - ${formatDateDDMMYYYY(data.rentEndDate as string)}`);
+  }
+
+  // Add monthly rent
+  if (data.monthlyRent) {
+    const rent = data.monthlyRent.toString().trim();
+    summary.push(`• דמי שכירות חודשיים: ${rent || '-'} ש"ח`);
+  } else {
+    summary.push(`• דמי שכירות חודשיים: -`);
+  }
+
+  // Add payment method
+  if (data.paymentMethod) {
+    summary.push(`• אמצעי תשלום: ${data.paymentMethod}`);
+  } else {
+    summary.push(`• אמצעי תשלום: -`);
+  }
+
+  // Add extension option
+  if (data.hasExtensionOption === 'כן' && data.extensionDuration) {
+    summary.push(`• אופציית הארכה: ${data.extensionDuration}`);
+  }
+
+  // Add early exit option
+  if (data.allowEarlyExit === 'כן') {
+    const compensation = data.earlyExitCustomCompensation || data.earlyExitCompensation || '-';
+    summary.push(`• אפשרות יציאה מוקדמת: כן, פיצוי: ${compensation}`);
+  }
+
+  // Add pets allowance
+  if (data.allowPets) {
+    summary.push(`• חיות מחמד: ${data.allowPets === 'כן' ? 'מותר' : 'אסור'}`);
+  } else {
+    summary.push(`• חיות מחמד: -`);
+  }
+
+  // Add sublet allowance
+  if (data.allowSublet) {
+    summary.push(`• השכרת משנה: ${data.allowSublet === 'כן' ? 'מותר' : 'אסור'}`);
+  } else {
+    summary.push(`• השכרת משנה: -`);
+  }
+
+  return summary.join('\n');
 } 
