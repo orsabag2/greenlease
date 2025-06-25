@@ -1,4 +1,7 @@
-export type MergeData = Record<string, string | number | undefined | null>;
+export interface MergeData {
+  [key: string]: string | number | boolean | null | undefined | Array<string>;
+  security_types?: string[];
+}
 
 function formatDateDDMMYYYY(dateStr?: string | null): string {
   if (!dateStr) return '';
@@ -100,10 +103,51 @@ export default function contractMerge(template: string, data: MergeData): string
     return section;
   });
 
+  // Custom logic for tenant utilities section 9.2
+  processed = processed.replace(/9\.2 תשלומים החלים על מחזיק הנכס \(כגון ארנונה, מים, חשמל, גז, ועד בית, ניהול\) – באחריות השוכר\./g, () => {
+    const selectedUtilities = Array.isArray(data['tenant_utilities']) ? data['tenant_utilities'] : [];
+    if (selectedUtilities.length === 0) {
+      return '9.2 תשלומים החלים על מחזיק הנכס – באחריות השוכר.';
+    }
+    return `9.2 תשלומים החלים על מחזיק הנכס – באחריות השוכר, ובכלל זה: <strong>${selectedUtilities.join(', ')}</strong>.`;
+  });
+
+  // Custom logic for insurance section 10
+  processed = processed.replace(/10\. ביטוחים[\s\S]*?⸻/g, (match) => {
+    const insuranceType = data['insuranceTypes'];
+    
+    if (insuranceType === 'לא נדרש ביטוח') {
+      return `10. ביטוחים\n\n10.1 לבקשת המשכיר, לא תחול על השוכר חובה לערוך ביטוח מכל סוג שהוא, והצדדים מוותרים על כל טענה עתידית בעניין זה, בכפוף לאחריות החוזית והנזיקית הרגילה של כל צד.\n\n⸻`;
+    }
+
+    let section = '10. ביטוחים\n\n';
+    section += '10.1 השוכר מתחייב להחזיק לכל אורך תקופת השכירות ';
+
+    switch (insuranceType) {
+      case "ביטוח צד ג' בלבד":
+        section += 'פוליסת ביטוח צד ג\' בתוקף.';
+        break;
+      case "ביטוח צד ג' + הוספת המשכיר כמבוטח":
+        section += 'פוליסת ביטוח צד ג\' בתוקף. הפוליסה תכלול את המשכיר כמבוטח נוסף.';
+        break;
+      case "ביטוח צד ג' + ויתור שיבוב":
+        section += 'פוליסת ביטוח צד ג\' בתוקף. הפוליסה תכלול סעיף ויתור על זכות השיבוב כלפי המשכיר.';
+        break;
+      case "ביטוח תכולה (רשות)":
+        section += 'פוליסת ביטוח תכולה בתוקף, ככל שיבחר לעשות כן.';
+        break;
+      default:
+        section += `פוליסת ביטוח בתוקף מסוג <strong>${insuranceType}</strong>.`;
+    }
+
+    section += '\n10.2 עותק מהפוליסה יימסר למשכיר לפחות 3 ימי עסקים לפני מועד הכניסה למושכר.';
+    return section + '\n\n⸻';
+  });
+
   // Custom logic for guarantorsSection
   processed = processed.replace(/{{guarantorsSection}}/g, () => {
     if (data['guarantorsCount'] && data['guarantorsCount'] !== '0') {
-      let section = 'נספח: כתב ערבות\n\n(ממולא ככל שנדרשו ערבים)\n\n';
+      let section = 'נספח: כתב ערבות\n\n\n\n';
       section += 'אנו החתומים מטה מתחייבים בזאת כלפי המשכיר לכל התחייבויות השוכר לפי הסכם השכירות לעיל. אנו מאשרים כי קראנו את ההסכם, ובמיוחד את הסעיפים הנוגעים לבטחונות (סעיף 12), ומסכימים במפורש להיות ערבים לאותן התחייבויות.\n';
       if (data['guarantorsCount'] === '1' || data['guarantorsCount'] === 1) {
         section += `• ערב 1: שם: ${data['guarantor1Name'] || '______________'} | ת"ז: ${data['guarantor1Id'] || '______________'} | כתובת: ${data['guarantor1Address'] || '______________'} | טלפון: ${data['guarantor1Phone'] || '______________'}\n`;
@@ -115,6 +159,61 @@ export default function contractMerge(template: string, data: MergeData): string
       return section;
     }
     return '';
+  });
+
+  // Custom logic for securities section 12
+  processed = processed.replace(/12\. בטחונות[\s\S]*?⸻/g, () => {
+    const securityTypes = Array.isArray(data.security_types) ? data.security_types : [];
+    
+    // If no securities required or explicitly marked as not required
+    if (securityTypes.length === 0 || securityTypes.includes('לא נדרש')) {
+      return `12. בטחונות\n\n` +
+        `12.1 המשכיר מצהיר כי אינו דורש מהשוכר להעמיד בטחונות כלשהם במסגרת הסכם זה.\n` +
+        `12.2 על אף האמור לעיל, מוסכם כי כל אחריות ו/או התחייבות של השוכר לפי הסכם זה תישאר בתוקף, וכי אי-העמדת בטחונות אינה מהווה ויתור מצד המשכיר על זכויותיו לפי דין או הסכם.\n\n⸻`;
+    }
+
+    let section = '12. בטחונות\n\n12.1 טרם הכניסה למושכר, ימציא השוכר את הבטחונות הבאים:\n';
+    
+    const hasPromissoryNote = securityTypes.includes('שטר חוב וערבים');
+    
+    // Add promissory note and guarantors if selected
+    if (hasPromissoryNote && data['guaranteeAmount']) {
+      section += `• שטר חוב ע"ס <strong>${data['guaranteeAmount']}</strong> ש"ח`;
+      if (data['guarantorsCount']) {
+        section += `, עם <strong>${data['guarantorsCount']}</strong> ערבים לשביעות רצון המשכיר`;
+      }
+      section += ';\n';
+    }
+
+    // Add deposit if selected
+    if (securityTypes.includes('פיקדון כספי') && data['depositAmount']) {
+      section += `• פיקדון בסך <strong>${data['depositAmount']}</strong> ש"ח;\n`;
+    }
+
+    // Add bank guarantee if selected
+    if (securityTypes.includes('ערבות בנקאית') && data['bankGuaranteeAmount']) {
+      section += `• ערבות בנקאית בסך <strong>${data['bankGuaranteeAmount']}</strong> ש"ח;\n`;
+    }
+
+    // Add additional clauses
+    if (hasPromissoryNote) {
+      section += '\n12.2 ערבות הערבים ו/או שטר החוב הינם בלתי חוזרים, ויחולו גם בתקופות הארכה ככל שקיימות.';
+    }
+    
+    section += '\n12.3 מימוש כל בטוחה ייעשה לאחר התראה בכתב של 7 ימים.';
+    section += '\n12.4 ככל שהופחת ערך בטוחה עקב מימוש – על השוכר להשלים את הסכום תוך 7 ימי עסקים.';
+    
+    if (data['guaranteeReturnDays']) {
+      section += `\n12.5 הביטחונות יושבו לשוכר תוך <strong>${data['guaranteeReturnDays']}</strong> ימים ממועד הפינוי בפועל, ובלבד שהוצגו כל הקבלות הנדרשות ולא נגרם נזק.`;
+    }
+
+    return section + '\n\n⸻';
+  });
+
+  // Custom logic for section 13.2 - sign permission
+  processed = processed.replace(/13\.2 לקראת סיום תקופת השכירות, יהיה המשכיר רשאי, ככל שנבחרה אפשרות זו, להציב שלט בכניסה או על גבי הדירה לצורך מכירה או השכרה עתידית\./g, () => {
+    const allowSign = data['allowSign'] === 'כן';
+    return `13.2 ${allowSign ? 'לקראת סיום תקופת השכירות, יהיה המשכיר רשאי להציב שלט בכניסה או על גבי הדירה לצורך מכירה או השכרה עתידית.' : 'המשכיר לא יהיה רשאי להציב שלט בכניסה או על גבי הדירה לצורך מכירה או השכרה עתידית.'}`;
   });
 
   // First, let's identify which sections should be included
@@ -206,6 +305,89 @@ export default function contractMerge(template: string, data: MergeData): string
     return `<strong>${displayValue}</strong>`;
   });
 
+  // Insert extension rent clause if extension is enabled
+  let extensionRentClause = '';
+  if (data['hasExtensionOption'] === 'כן' && data['extensionRent']) {
+    extensionRentClause = `2.7.1 דמי השכירות לתקופת הארכה יהיו בסך <strong>${data['extensionRent']}</strong> ש"ח.`;
+  }
+  processed = processed.replace(/{{extensionRentClause}}/g, extensionRentClause);
+
+  // Generate lateInterestClause for 5.1
+  let lateInterestClause = '';
+  switch (data['lateInterestType']) {
+    case 'לא לגבות ריבית בכלל':
+      lateInterestClause = 'בגין איחור בתשלום מכל סוג שהוא, לא תגבה ריבית פיגורים.';
+      break;
+    case '0.03% ליום (סטנדרטי)':
+      lateInterestClause = 'בגין איחור בתשלום מכל סוג שהוא, ישלם השוכר ריבית פיגורים בשיעור 0.03% ליום.';
+      break;
+    case 'סכום קבוע':
+      lateInterestClause = `בגין איחור בתשלום מכל סוג שהוא, ישלם השוכר ריבית פיגורים בסך <strong>${data['lateInterestFixedAmount'] || '-'} ש"ח</strong> ליום.`;
+      break;
+    default:
+      lateInterestClause = '';
+  }
+
+  // Robustly replace/remove 5.1 lines with placeholders, regardless of whitespace
+  const lateInterestRegex = /^.*5\.1.*\{\{lateInterestClause\}\}.*$/gm;
+  const evacuationPenaltyRegex = /^.*5\.3.*\{\{evacuationPenaltyClause\}\}.*$/gm;
+
+  if (lateInterestClause) {
+    processed = processed.replace(lateInterestRegex, `5.1 ${lateInterestClause}`);
+  } else {
+    processed = processed.replace(lateInterestRegex, '');
+  }
+
+  // Generate evacuationPenaltyClause for 5.3
+  let evacuationPenaltyClause = '';
+  switch (data['evacuationPenaltyType']) {
+    case 'לא לגבות דמי שימוש בכלל':
+      evacuationPenaltyClause = 'בגין איחור בפינוי המושכר, לא ייגבו דמי שימוש.';
+      break;
+    case 'לגבות 2% מדמי השכירות היומיים':
+      evacuationPenaltyClause = 'בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך 2% מדמי השכירות היומיים עבור כל יום איחור.';
+      break;
+    case 'לגבות 5% מדמי השכירות היומיים':
+      evacuationPenaltyClause = 'בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך 5% מדמי השכירות היומיים עבור כל יום איחור.';
+      break;
+    case 'לגבות סכום קבוע ליום':
+      evacuationPenaltyClause = `בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך <strong>${data['evacuationPenaltyFixedAmount'] || '-'} ש"ח</strong> ליום עבור כל יום איחור.`;
+      break;
+    default:
+      evacuationPenaltyClause = '';
+  }
+
+  if (evacuationPenaltyClause) {
+    processed = processed.replace(evacuationPenaltyRegex, `5.3 ${evacuationPenaltyClause}`);
+  } else {
+    processed = processed.replace(evacuationPenaltyRegex, '');
+  }
+
+  // --- Custom logic for section 6: Maintenance and Repairs ---
+  processed = processed.replace(/6\.1 המשכיר יהיה אחראי לטיפול בתקלות בצנרת, חשמל, מזגן ודוד חימום\./g, () => {
+    const parts = data['maintenance_responsibility'];
+    if (!parts || (Array.isArray(parts) && parts.length === 0)) return '6.1 [לא נבחרו פריטים, נא לעדכן את הסעיף]';
+    const arr = Array.isArray(parts) ? parts : [parts];
+    const joined = arr.join(', ').replace(/, ([^,]*)$/, ' ו$1');
+    return `6.1 המשכיר יהיה אחראי לטיפול בתקלות ב${joined}, ככל שהן נובעות מבלאי טבעי או ליקויים בתשתית.`;
+  });
+
+  processed = processed.replace(/6\.2 השוכר יהיה אחראי להחלפת נורות, ניקוי מסננים ותיקון נזקים שנגרמו משימוש לא תקין\./g, () => {
+    const fixScope = data['tenant_fixes'];
+    if (fixScope === 'כל דבר שלא נחשב תשתית') {
+      return '6.2 השוכר יהיה אחראי לכל תקלה שאינה חלק ממערכות התשתית של הדירה, לרבות שימוש רגיל ותחזוקה שוטפת.';
+    }
+    return '6.2 השוכר יהיה אחראי להחלפת נורות, ניקוי מסננים ותיקון נזקים שנגרמו משימוש לא תקין.';
+  });
+
+  processed = processed.replace(/6\.4 אם המשכיר לא טיפל בתקלה תוך 14 ימי עסקים, השוכר יהיה רשאי לתקן אותה בעצמו ולקבל החזר, בתנאי ששלח הודעה מראש, הצעת מחיר סבירה, והמשכיר לא התנגד תוך 7 ימי עסקים\./g, () => {
+    const allowFix = data['allow_tenant_fix'];
+    if (typeof allowFix === 'string' && allowFix.startsWith('כן')) {
+      return '6.4 אם המשכיר לא טיפל בתקלה תוך 14 ימי עסקים, השוכר יהיה רשאי לתקן אותה בעצמו ולקבל החזר, בתנאי ששלח הודעה מראש, הצעת מחיר סבירה, והמשכיר לא התנגד תוך 7 ימי עסקים.';
+    }
+    return '6.4 השוכר לא יהיה רשאי לבצע תיקון עצמאי בכל מקרה. כל תיקון יתבצע אך ורק על ידי המשכיר או איש מקצוע מטעמו.';
+  });
+
   // Split into lines and process each line for final cleanup
   const finalLines = processed.split('\n').filter(line => {
     // Keep non-empty lines and lines that aren't just numbers and dots
@@ -219,7 +401,7 @@ export default function contractMerge(template: string, data: MergeData): string
   return finalLines.join('\n\n');
 }
 
-function generateSummarySection(data: MergeData): string {
+export function generateSummarySection(data: MergeData): string {
   const summary = [
     'סיכום פרטי המושכר:',
     '',

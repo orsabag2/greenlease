@@ -22,47 +22,63 @@
   { "id": "hasStorage", "label": "האם יש מחסן בדירה שלך? ", "type": "select", "options": ["כן", "לא"] },
   { "id": "storageNumber", "label": "מה מספר המחסן שתרצה לציין? ", "type": "text", "visibleIf": { "hasStorage": "כן" }, "placeholder": "לדוגמה: 3" },
 
+  { "id": "monthlyRent", "label": "כמה אתה גובה דמי שכירות חודשיים? ", "type": "text", "placeholder": "לדוגמה: 4,500" },
+  { "id": "paymentDay", "label": "באיזה יום בחודש יתבצע התשלום?", "type": "text", "placeholder": "לדוגמה: 1" },
+  { "id": "paymentMethod", "label": "איך תרצה לקבל את התשלום מהשוכר? ", "type": "select", "options": ["העברה בנקאית", "צ'ק", "מזומן", "אחר"] },
   { "id": "moveInDate", "label": "מתי תרצה שהשוכר יתחיל את השכירות? ", "type": "date", "placeholder": "לדוגמה: 2025-07-01" },
   { "id": "rentEndDate", "label": "מתי תרצה שהשכירות תסתיים? ", "type": "date", "placeholder": "לדוגמה: 2026-07-01" },
   { "id": "hasExtensionOption", "label": "האם תרצה לאפשר הארכת שכירות? ", "type": "select", "options": ["כן", "לא"] },
   { "id": "extensionDuration", "label": "לכמה זמן תרצה לאפשר הארכה? ", "type": "text", "visibleIf": { "hasExtensionOption": "כן" }, "placeholder": "לדוגמה: 6 חודשים" },
   { "id": "extensionNoticeDays", "label": "כמה ימים מראש תרצה לקבל הודעה על הארכה? ", "type": "text", "visibleIf": { "hasExtensionOption": "כן" }, "placeholder": "לדוגמה: 30" },
+  { "id": "extensionRent", "label": "מה יהיו דמי השכירות לתקופת הארכה השכירות?", "type": "text", "visibleIf": { "hasExtensionOption": "כן" }, "placeholder": "לדוגמה: 5,000" },
   { "id": "allowEarlyExit", "label": "האם תרצה לאפשר לשוכר לצאת לפני הזמן? ", "type": "select", "options": ["כן", "לא"] },
   { "id": "earlyExitCompensation", "label": "מהו סכום הפיצוי בעיניך במקרה של יציאה מוקדמת? ", "type": "text", "visibleIf": { "allowEarlyExit": "כן" }, "placeholder": "לדוגמה: 4,500" },
   { "id": "earlyExitCustomCompensation", "label": "האם תרצה לציין פיצוי אחר ליציאה מוקדמת? ", "type": "text", "visibleIf": { "allowEarlyExit": "כן" }, "placeholder": "לדוגמה: פיצוי לפי ימים שנותרו" },
 
-  { "id": "rentalPurpose", "label": "לאיזו מטרה תרצה שהשוכר ישתמש בדירה? ", "type": "text", "placeholder": "לדוגמה: מגורים" },
-
-  { "id": "monthlyRent", "label": "כמה אתה גובה דמי שכירות חודשיים? ", "type": "text", "placeholder": "לדוגמה: 4,500" },
-  { "id": "paymentMethod", "label": "איך תרצה לקבל את התשלום מהשוכר? ", "type": "select", "options": ["העברה בנקאית", "צ'ק", "מזומן", "אחר"] },
-
-  { "id": "allowSelfRepair", "label": "האם תרצה לאפשר לשוכר לבצע תיקונים בעצמו? ", "type": "select", "options": ["כן", "לא"] },
-
   { "id": "allowPets", "label": "האם תרצה לאפשר לשוכר להביא חיות מחמד? ", "type": "select", "options": ["כן", "לא"] },
   { "id": "allowSublet", "label": "האם תרצה לאפשר לשוכר להשכיר לאחרים או לשתף את הדירה? ", "type": "select", "options": ["כן", "לא"] },
 
-  { "id": "insuranceTypes", "label": "אילו ביטוחים תרצה שהשוכר יעשה? ", "type": "text", "placeholder": "לדוגמה: ביטוח דירה, ביטוח צד ג'" },
+  { "id": "insuranceTypes", "label": "אילו ביטוחים תרצה שהשוכר יעשה?", "type": "select", "options": [
+    "ביטוח צד ג' בלבד",
+    "ביטוח צד ג' + הוספת המשכיר כמבוטח",
+    "ביטוח צד ג' + ויתור שיבוב",
+    "ביטוח תכולה (רשות)",
+    "לא נדרש ביטוח"
+  ], "placeholder": "בחר סוג ביטוח" },
 
   { "id": "exitPaintColor", "label": "באיזה צבע תרצה שהשוכר יצבע את הדירה ביציאה? ", "type": "text", "placeholder": "לדוגמה: לבן" },
 
-  { "id": "guaranteeAmount", "label": "מהו סכום הערבות שתרצה לדרוש? ", "type": "text", "placeholder": "לדוגמה: 10,000" },
-  { "id": "guarantorsCount", "label": "כמה ערבים תרצה שהשוכר יביא? ", "type": "select", "options": ["0", "1", "2"] },
-  { "id": "guarantor1Name", "label": "איך קוראים לערב הראשון שתרצה? ", "type": "text", "visibleIf": { "guarantorsCount": "1" }, "placeholder": "לדוגמה: דוד לוי" },
-  { "id": "guarantor1Id", "label": "מה מספר תעודת הזהות של ערב 1 שתרצה? ", "type": "text", "visibleIf": { "guarantorsCount": "1" }, "placeholder": "לדוגמה: 123456789" },
-  { "id": "guarantor1Address", "label": "מה כתובת ערב 1 שתרצה? ", "type": "text", "visibleIf": { "guarantorsCount": "1" }, "placeholder": "לדוגמה: הרצל 15" },
-  { "id": "guarantor1Phone", "label": "מה מספר הטלפון של ערב 1 שתרצה? ", "type": "text", "visibleIf": { "guarantorsCount": "1" }, "placeholder": "לדוגמה: 050-1234567" },
-  { "id": "guarantor2Name", "label": "איך קוראים לערב השני שתרצה? ", "type": "text", "visibleIf": { "guarantorsCount": "2" }, "placeholder": "לדוגמה: יצחק כהן" },
-  { "id": "guarantor2Id", "label": "מה מספר תעודת הזהות של ערב 2 שתרצה? ", "type": "text", "visibleIf": { "guarantorsCount": "2" }, "placeholder": "לדוגמה: 987654321" },
-  { "id": "guarantor2Address", "label": "מה כתובת ערב 2 שתרצה? ", "type": "text", "visibleIf": { "guarantorsCount": "2" }, "placeholder": "לדוגמה: הרצל 20" },
-  { "id": "guarantor2Phone", "label": "מה מספר הטלפון של ערב 2 שתרצה? ", "type": "text", "visibleIf": { "guarantorsCount": "2" }, "placeholder": "לדוגמה: 052-7654321" },
-  { "id": "depositAmount", "label": "מהו סכום הפיקדון שתרצה לדרוש? ", "type": "text", "placeholder": "לדוגמה: 4,500" },
-  { "id": "hasBankGuarantee", "label": "האם תרצה לקבל ערבות בנקאית? ", "type": "select", "options": ["כן", "לא"] },
-  { "id": "bankGuaranteeAmount", "label": "מהו סכום הערבות הבנקאית שתרצה? ", "type": "text", "visibleIf": { "hasBankGuarantee": "כן" }, "placeholder": "לדוגמה: 10,000" },
-  { "id": "guaranteeReturnDays", "label": "אחרי כמה ימים תרצה להחזיר את הבטחונות לשוכר? ", "type": "text", "placeholder": "לדוגמה: 30" },
+  { "id": "security_types", "label": "אילו בטחונות תרצה לקבל מהשוכר?", "type": "checkbox", "options": [
+    "שטר חוב וערבים",
+    "פיקדון כספי",
+    "ערבות בנקאית",
+    "לא נדרש"
+  ], "placeholder": "בחר סוגי בטחונות" },
+
+  { "id": "guaranteeAmount", "label": "מהו סכום שטר החוב שתרצה לדרוש? ", "type": "text", "placeholder": "לדוגמה: 10,000", "visibleIf": { "security_types": ["שטר חוב וערבים"] } },
+  { "id": "guarantorsCount", "label": "כמה ערבים תרצה שהשוכר יביא? ", "type": "select", "options": ["1", "2"], "visibleIf": { "security_types": ["שטר חוב וערבים"] } },
+  
+  { "id": "guarantor1Name", "label": "איך קוראים לערב הראשון? ", "type": "text", "visibleIf": { "security_types": ["שטר חוב וערבים"] }, "placeholder": "לדוגמה: דוד לוי" },
+  { "id": "guarantor1Id", "label": "מה מספר תעודת הזהות של ערב 1? ", "type": "text", "visibleIf": { "security_types": ["שטר חוב וערבים"] }, "placeholder": "לדוגמה: 123456789" },
+  { "id": "guarantor1Address", "label": "מה כתובת ערב 1? ", "type": "text", "visibleIf": { "security_types": ["שטר חוב וערבים"] }, "placeholder": "לדוגמה: הרצל 15" },
+  { "id": "guarantor1Phone", "label": "מה מספר הטלפון של ערב 1? ", "type": "text", "visibleIf": { "security_types": ["שטר חוב וערבים"] }, "placeholder": "לדוגמה: 050-1234567" },
+  { "id": "guarantor2Name", "label": "איך קוראים לערב השני? ", "type": "text", "visibleIf": { "security_types": ["שטר חוב וערבים"], "guarantorsCount": "2" }, "placeholder": "לדוגמה: יצחק כהן" },
+  { "id": "guarantor2Id", "label": "מה מספר תעודת הזהות של ערב 2? ", "type": "text", "visibleIf": { "security_types": ["שטר חוב וערבים"], "guarantorsCount": "2" }, "placeholder": "לדוגמה: 987654321" },
+  { "id": "guarantor2Address", "label": "מה כתובת ערב 2? ", "type": "text", "visibleIf": { "security_types": ["שטר חוב וערבים"], "guarantorsCount": "2" }, "placeholder": "לדוגמה: הרצל 20" },
+  { "id": "guarantor2Phone", "label": "מה מספר הטלפון של ערב 2? ", "type": "text", "visibleIf": { "security_types": ["שטר חוב וערבים"], "guarantorsCount": "2" }, "placeholder": "לדוגמה: 052-7654321" },
+  
+  { "id": "depositAmount", "label": "מהו סכום הפיקדון שתרצה לדרוש? ", "type": "text", "placeholder": "לדוגמה: 4,500", "visibleIf": { "security_types": ["פיקדון כספי"] } },
+  { "id": "bankGuaranteeAmount", "label": "מהו סכום הערבות הבנקאית שתרצה? ", "type": "text", "visibleIf": { "security_types": ["ערבות בנקאית"] }, "placeholder": "לדוגמה: 10,000" },
+  { "id": "guaranteeReturnDays", "label": "אחרי כמה ימים תרצה להחזיר את הבטחונות לשוכר? ", "type": "text", "placeholder": "לדוגמה: 30", "visibleIf": { "security_types": { "$ne": ["לא נדרש"] } } },
 
   { "id": "allowSign", "label": "האם תרצה לאפשר לשים שלט למכירה/השכרה בדירה שלך? ", "type": "select", "options": ["כן", "לא"] },
 
   { "id": "includeAgreementDetails", "label": "האם תרצה להוסיף לחוזה את מיקום ותאריך החתימת חוזה?", "type": "select", "options": ["כן", "לא"] },
   { "id": "agreementDate", "label": "מתי תרצה לציין שנחתם ההסכם? ", "type": "date", "placeholder": "לדוגמה: 2025-07-01", "visibleIf": { "includeAgreementDetails": "כן" } },
-  { "id": "agreementCity", "label": "באיזו עיר תרצה לציין שנחתם ההסכם? ", "type": "text", "placeholder": "לדוגמה: תל אביב", "visibleIf": { "includeAgreementDetails": "כן" } }
+  { "id": "agreementCity", "label": "באיזו עיר תרצה לציין שנחתם ההסכם? ", "type": "text", "placeholder": "לדוגמה: תל אביב", "visibleIf": { "includeAgreementDetails": "כן" } },
+
+  { "id": "tenant_utilities", "label": "אילו תשלומים יחולו על השוכר?", "type": "select", "options": ["ארנונה", "מים", "חשמל", "גז", "ועד בית", "דמי ניהול"], "helperText": "סמן את כל התשלומים שהשוכר יהיה אחראי לשלם.", "multiple": true, "variant": "greenbox" },
+  { "id": "maintenance_responsibility", "label": "מה אתה מוכן לקחת על עצמך כמשכיר במקרה של תקלה?", "type": "select", "options": ["צנרת (מים, ביוב)", "חשמל", "מזגן", "דוד חימום", "רטיבות בקירות", "אחר"], "helperText": "סמן את כל התחומים שאתה מוכן לקחת על עצמך.", "multiple": true, "variant": "greenbox" },
+  { "id": "allow_tenant_fix", "label": "לא תיקנת תקלה תוך 14 ימים – לאפשר לשוכר לתקן ולקבל החזר?", "type": "select", "options": ["כן, אם שלח לי הודעה מראש, הצעת מחיר סבירה ולא התנגדתי תוך 7 ימים", "לא, רק המשכיר יתקן"], "variant": "dropdown" },
+  { "id": "tenant_fixes", "label": "מה השוכר צריך לתקן בעצמו?", "type": "select", "options": ["דברים קטנים (נורות, מסננים, תיקון קל)", "כל דבר שלא נחשב תשתית"], "variant": "greenbox" }
 ]

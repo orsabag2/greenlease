@@ -24,7 +24,7 @@ function formatDate(dateStr: string | undefined): string {
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
     return `${day}.${month}.${year}`;
-  } catch (error) {
+  } catch {
     return '_______';
   }
 }
@@ -47,7 +47,11 @@ interface ContractMeta {
   includeAgreementDetails?: boolean;  // Whether to include agreement date and location
   agreementCity?: string;  // City where agreement was signed
   agreementDate?: string;  // Date when agreement was signed
-  [key: string]: any; // Allow any other properties
+  lateInterestType?: string;
+  lateInterestFixedAmount?: string;
+  evacuationPenaltyType?: string;
+  evacuationPenaltyFixedAmount?: string;
+  [key: string]: string | boolean | undefined; // Allow any other properties
 }
 
 function formatContractText(text: string): string {
@@ -101,7 +105,7 @@ export default function ContractPreviewPage() {
         try {
           if (metaStr) {
             rawData = JSON.parse(metaStr);
-            // Flatten landlord and tenant data for contract compatibility
+            // Flatten all keys from rawData, landlords[0], and tenants[0]
             data = {
               ...rawData,
               ...(Array.isArray(rawData.landlords) && rawData.landlords[0] ? rawData.landlords[0] : {}),
@@ -114,11 +118,15 @@ export default function ContractPreviewPage() {
           setMeta(null);
         }
 
+        // Log the data passed to contractMerge for verification
+        console.log('ContractPreviewPage: data passed to contractMerge:', data);
+
         // Merge template with data
         let mergedContract = contractMerge(template, data);
 
         // Handle multiple tenants if present
         if (Array.isArray(rawData.tenants) && rawData.tenants.length > 1) {
+          // Handle tenants in the main contract section (at the top)
           const tenantLines = rawData.tenants.map((tenant: any, idx: number) => {
             const name = tenant.tenantName || '-';
             const id = tenant.tenantIdNumber || '-';
@@ -127,7 +135,48 @@ export default function ContractPreviewPage() {
             return `${idx + 1}. <strong>השוכר :</strong> <strong>${name}</strong>, ת"ז <strong>${id}</strong>, עיר מגורים: <strong>${city}</strong>, טלפון: <strong>${phone}</strong>`;
           }).join('\n');
           
-          mergedContract = mergedContract.replace(/השוכר: [^\n]+/g, tenantLines);
+          // Replace only the first occurrence (in the main contract section)
+          const firstOccurrence = mergedContract.indexOf('השוכר:');
+          if (firstOccurrence !== -1) {
+            const beforeText = mergedContract.substring(0, firstOccurrence);
+            const afterText = mergedContract.substring(firstOccurrence + 7);
+            const nextNewline = afterText.indexOf('\n');
+            mergedContract = beforeText + tenantLines + afterText.substring(nextNewline);
+          }
+
+          // For section 15 (signatures), create simpler signature lines
+          const signatureLines = rawData.tenants.map((tenant: any, idx: number) => {
+            const name = tenant.tenantName || '-';
+            const id = tenant.tenantIdNumber || '-';
+            return `
+<div class="signature-block">
+<strong>שוכר ${idx + 1}</strong>: ____________________
+שם: <strong>${name}</strong> | ת"ז: <strong>${id}</strong>
+</div>`;
+          }).join('\n');
+
+          // Replace the signature section
+          const signatureSection = `15. חתימות
+
+<div class="signature-header">ולראיה באו הצדדים על החתום</div>
+
+<div class="signature-block">
+<strong>המשכיר</strong>: ____________________
+שם: <strong>${data.landlordName}</strong> | ת"ז: <strong>${data.landlordId}</strong>
+</div>
+
+${signatureLines}`;
+
+          // Find and replace the entire section 15
+          const section15Start = mergedContract.indexOf('15. חתימות');
+          const section15End = mergedContract.indexOf('⸻\n\n16.');
+          
+          if (section15Start !== -1 && section15End !== -1) {
+            mergedContract = 
+              mergedContract.substring(0, section15Start) +
+              signatureSection +
+              mergedContract.substring(section15End);
+          }
         }
 
         // Format the contract text with indentation
@@ -211,6 +260,26 @@ export default function ContractPreviewPage() {
             font-size: 11pt !important;
             margin-bottom: 16px !important;
           }
+          /* Make section 16 start on a new page */
+          [data-section="16"] {
+            page-break-before: always !important;
+          }
+        }
+
+        /* Add these styles to your existing styles section */
+        .signature-header {
+          font-size: 1.4em;
+          font-weight: bold;
+          text-align: center;
+          margin: 2em 0;
+          display: block;
+        }
+
+        /* Signature section styling */
+        .signature-block {
+          margin: 2em 0;
+          line-height: 2;
+          display: block;
         }
       `}</style>
       <main className="min-h-screen flex flex-col items-center bg-white text-gray-900" style={{ fontFamily: 'var(--contract-font)' }} dir="rtl">
@@ -256,10 +325,62 @@ export default function ContractPreviewPage() {
             {contract.split('\n').map((line, index) => {
               // Skip empty lines and separator lines
               if (!line.trim() || line.trim() === '⸻') return null;
-              
+
+              // Special handling for 5.1 and 5.2
+              if (line.trim().startsWith('5.1')) {
+                let bullet = '-';
+                if (meta) {
+                  switch (meta.lateInterestType) {
+                    case 'לא לגבות ריבית בכלל':
+                      bullet = 'בגין איחור בתשלום מכל סוג שהוא, לא תגבה ריבית פיגורים.';
+                      break;
+                    case '0.03% ליום (סטנדרטי)':
+                      bullet = 'בגין איחור בתשלום מכל סוג שהוא, ישלם השוכר ריבית פיגורים בשיעור 0.03% ליום.';
+                      break;
+                    case 'סכום קבוע':
+                      bullet = `בגין איחור בתשלום מכל סוג שהוא, ישלם השוכר ריבית פיגורים בסך ${meta.lateInterestFixedAmount || '-'} ש"ח ליום.`;
+                      break;
+                    default:
+                      bullet = '-';
+                  }
+                }
+                return (
+                  <div key={index}>
+                    5.1 {bullet}
+                  </div>
+                );
+              }
+              if (line.trim().startsWith('5.2')) {
+                let bullet = '-';
+                if (meta) {
+                  switch (meta.evacuationPenaltyType) {
+                    case 'לא לגבות דמי שימוש בכלל':
+                      bullet = 'בגין איחור בפינוי המושכר, לא ייגבו דמי שימוש.';
+                      break;
+                    case 'לגבות 2% מדמי השכירות היומיים':
+                      bullet = 'בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך 2% מדמי השכירות היומיים עבור כל יום איחור.';
+                      break;
+                    case 'לגבות 5% מדמי השכירות היומיים':
+                      bullet = 'בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך 5% מדמי השכירות היומיים עבור כל יום איחור.';
+                      break;
+                    case 'לגבות סכום קבוע ליום':
+                      bullet = `בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך ${meta.evacuationPenaltyFixedAmount || '-'} ש"ח ליום עבור כל יום איחור.`;
+                      break;
+                    default:
+                      bullet = '-';
+                  }
+                }
+                return (
+                  <div key={index}>
+                    5.2 {bullet}
+                  </div>
+                );
+              }
+
               // Check if the line starts with a number pattern (main sections or subsections)
               const isMainSection = /^\d+\.(?!\d)/.test(line.trim());
               const isSubSection = /^\d+\.\d+/.test(line.trim());
+              const sectionNumber = line.trim().match(/^(\d+)\.(?!\d)/)?.[1];
 
               // Add bold to section numbers and "המושכר"
               if (isSubSection || line.includes('<strong>')) {
@@ -345,9 +466,13 @@ export default function ContractPreviewPage() {
 
               // Regular line processing
               return (
-                <div key={index} className={isMainSection ? 'main-section' : ''} style={{ marginBottom: '1em' }}>
-                  {line}
-                </div>
+                <div 
+                  key={index} 
+                  className={isMainSection ? 'main-section' : ''} 
+                  style={{ marginBottom: '1em' }}
+                  {...(sectionNumber ? { 'data-section': sectionNumber } : {})}
+                  dangerouslySetInnerHTML={{ __html: line }}
+                />
               );
             })}
           </div>
