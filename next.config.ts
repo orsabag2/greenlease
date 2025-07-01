@@ -1,3 +1,5 @@
+import '@sparticuz/chromium';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: {
