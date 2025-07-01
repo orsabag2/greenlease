@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700&display=swap');
 @import "tailwindcss";
 
 :root {
@@ -148,71 +149,125 @@ input::placeholder, textarea::placeholder, select::placeholder {
   font-weight: 600;
 }
 .contract-preview {
-  font-size: 1.08rem;
-  font-weight: 500;
+  font-family: 'Frank Ruhl Libre', Arial, sans-serif !important;
+  line-height: 1.6 !important;
+  white-space: pre-line !important;
 }
-.section-title {
-  font-weight: bold;
-  font-size: 1.22rem;
-  margin-top: 1.2em;
-  margin-bottom: 0.4em;
-  color: #111;
-  display: block;
-  text-decoration: underline;
-  letter-spacing: 0.01em;
+.contract-preview p,
+.contract-preview div {
+  margin: 0.3em 0;
+  line-height: 1.6 !important;
 }
-.highlight {
-  font-weight: bold;
-  color: #111;
+.contract-preview > div:not(:last-child) {
+  margin-bottom: 0.5em;
 }
-.contract-paragraph {
-  display: block;
-  padding-right: 2.5em;
+.contract-preview div.main-section {
+  margin-top: 1em;
   margin-bottom: 0.7em;
-  margin-top: 0;
-  page-break-inside: avoid;
 }
-.contract-signature-area {
-  margin-top: 64px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 80px;
-  padding-left: 40px;
+.contract-preview strong {
+  white-space: nowrap;
 }
-.signature-label {
-  font-size: 1.13rem;
-  color: #444;
-  border-top: 1.5px solid #bbb;
-  padding-top: 18px;
-  min-width: 240px;
+.main-section {
+  font-weight: 700 !important;
+  font-size: 1.2em !important;
+  margin-top: 1em !important;
+  margin-bottom: 1em !important;
+}
+.contract-party-section {
+  margin: 1em 0;
+  color: inherit;
+  white-space: pre-line;
+}
+.signature-header {
+  font-size: 1.4em;
+  font-weight: bold;
   text-align: center;
-  font-family: var(--contract-font);
+  margin: 2em 0;
+  display: block;
+}
+.signature-block {
+  margin: 2em 0;
+  line-height: 2;
+  display: block;
+}
+.contract-title {
+  font-size: 2.25rem;
+  font-weight: bold;
+  text-align: center;
+  text-decoration: underline;
+  margin-bottom: 0;
+  margin-top: 2.5rem;
+}
+.contract-subtitle {
+  text-align: center;
+  font-size: 1.125rem;
+  color: #374151;
+  margin-bottom: 0.75rem;
+  font-weight: 500;
 }
 .contract-date-row {
   text-align: center;
-  font-size: 1.08rem;
-  color: #444;
-  margin-bottom: 32px;
-  font-weight: 400;
-  font-family: var(--contract-font);
+  font-size: 1rem;
+  color: #374151;
+  margin-bottom: 0.75rem;
+}
+[data-section="16"] {
+  page-break-before: always !important;
 }
 @media print {
-  .contract-header, .header-actions, button, .no-print { display: none !important; }
-  @page { margin: 0; size: A4; }
-  body { margin: 0; background: #fff !important; }
-  .page {
-    box-shadow: none !important;
-    border: none !important;
-    page-break-after: always;
-    height: 297mm;
-    width: 210mm;
-    min-height: unset;
-    min-width: unset;
+  header.print-hidden,
+  div.print-spacer {
+    display: none !important;
   }
-  .contract-paragraph, .section-title, .clause-level-1, .clause-level-2, .clause-level-3, .bullet-item {
-    page-break-inside: avoid;
+  @page {
+    margin: 2.5cm;
+  }
+  .contract-preview {
+    padding: 0 !important;
+    font-size: 11pt !important;
+  }
+  .contract-title {
+    font-size: 16pt !important;
+    margin-bottom: 8px !important;
+  }
+  .contract-subtitle {
+    font-size: 13pt !important;
+    margin-bottom: 8px !important;
+  }
+  .contract-date-row {
+    font-size: 11pt !important;
+    margin-bottom: 16px !important;
+  }
+  [data-section="16"] {
+    page-break-before: always !important;
   }
 }
+
+.print-mode .print-hidden,
+.print-mode div.print-spacer {
+  display: none !important;
+}
+.print-mode .contract-preview {
+  padding: 0 !important;
+  font-size: 11pt !important;
+}
+.print-mode .contract-title {
+  font-size: 16pt !important;
+  margin-bottom: 8px !important;
+}
+.print-mode .contract-subtitle {
+  font-size: 13pt !important;
+  margin-bottom: 8px !important;
+}
+.print-mode .contract-date-row {
+  font-size: 11pt !important;
+  margin-bottom: 16px !important;
+}
+.print-mode [data-section="16"] {
+  page-break-before: always !important;
+}
+
 .action-btn {
   padding: 10px 22px;
   font-size: 1.05rem;
@@ -440,6 +495,11 @@ input::placeholder, textarea::placeholder, select::placeholder {
     margin: 12px 0 0 0 !important;
     box-sizing: border-box !important;
   }
+  /* Only fix the summary step green card padding for mobile */
+  .summary-green-card {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
 }
 
 @media (min-width: 601px) {
@@ -463,5 +523,36 @@ input::placeholder, textarea::placeholder, select::placeholder {
   }
   img {
     max-width: 95vw !important;
+  }
+}
+
+input, select, textarea {
+  color: #222 !important;
+}
+
+.property-row-responsive {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.property-row-responsive > div {
+  flex: 1 1 0;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.property-row-responsive input {
+  width: 100%;
+  box-sizing: border-box;
+}
+@media (max-width: 600px) {
+  .property-row-responsive {
+    flex-direction: column;
+    gap: 0;
+  }
+  .property-row-responsive > div {
+    width: 100%;
+    min-width: 0;
   }
 }

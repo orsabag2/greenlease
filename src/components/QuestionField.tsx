@@ -1,4 +1,5 @@
 import React from 'react';
+import { isValidIsraeliId } from '../utils/israeliId';
 
 type Question = {
   id: string;
@@ -7,7 +8,7 @@ type Question = {
   options?: string[];
   placeholder?: string;
   helperText?: string;
-  variant?: 'greenbox';
+  variant?: 'greenbox' | 'dropdown';
   multiple?: boolean;
   group?: string;
   [key: string]: unknown;
@@ -35,6 +36,15 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
   };
 
   const [isOtherInputFocused, setIsOtherInputFocused] = React.useState(false);
+  const [touched, setTouched] = React.useState(false);
+
+  // Helper: List of phone and numeric field IDs
+  const PHONE_FIELD_IDS = [
+    'landlordPhone', 'tenantPhone', 'guarantor1Phone', 'guarantor2Phone'
+  ];
+  const NUMERIC_FIELD_IDS = [
+    'apartmentRooms', 'paymentDay', 'monthlyRent', 'extensionDuration', 'extensionNoticeDays', 'extensionRent', 'earlyExitCompensation', 'depositAmount', 'guaranteeReturnDays', 'bankGuaranteeAmount'
+  ];
 
   if (viewOnly) {
     const isLandlord = question.group === 'landlord';
@@ -66,36 +76,29 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
     const customFeatures = valueArr.filter(v => !baseOptions.includes(v) && v !== otherKey);
     const [otherInput, setOtherInput] = React.useState('');
 
-    // Keep input in sync if value changes from outside (for tags)
     React.useEffect(() => {
       setOtherInput('');
-      // eslint-disable-next-line
     }, [customFeatures.join(', ')]);
 
     const handleOtherInputAdd = () => {
       const features = otherInput.split(',').map(f => f.trim()).filter(f => f);
-      // Only update if there are new features to add
       if (features.length > 0) {
-        // Add only features that are not already present
         const toAdd = features.filter(f => !customFeatures.includes(f));
         if (toAdd.length > 0) {
           onChange([...valueArr.filter(v => baseOptions.includes(v)), ...customFeatures, ...toAdd]);
         }
         setOtherInput('');
       }
-      // If input is empty, do nothing (keep previous custom features)
     };
 
     const handleRemoveCustom = (feature: string) => {
       onChange(valueArr.filter(v => v !== feature));
     };
 
-    // Local state for the custom features input
     const [customInput, setCustomInput] = React.useState(customFeatures.join(', '));
 
     React.useEffect(() => {
       setCustomInput(customFeatures.join(', '));
-      // eslint-disable-next-line
     }, [customFeatures.join(', ')]);
 
     const handleCustomInputBlur = () => {
@@ -156,7 +159,6 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
             })}
           </div>
         </div>
-        {/* Regular text field for custom features */}
         <input
           type="text"
           className="border rounded px-3 py-2 w-full text-right border-[#D1D5DB] focus:border-[#38E18E] focus:ring-2 focus:ring-[#38E18E] transition-colors mt-3"
@@ -530,7 +532,6 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
             })}
           </div>
         </div>
-        {/* Show extra input for fixed amount if selected */}
         {question.id === 'lateInterestType' && value === 'סכום קבוע' && (
           <div className="mt-3">
             <input
@@ -631,7 +632,6 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
     );
   }
 
-  // Special group button style for 'security_types' (multi-select)
   if (question.id === 'security_types' && question.options) {
     const options = question.options as string[];
     const valueArr = Array.isArray(value) ? value : [];
@@ -696,12 +696,239 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
     );
   }
 
-  // Prevent duplicate input for lateInterestType 'סכום קבוע' (handled above)
   if (question.id === 'lateInterestType' && value === 'סכום קבוע') {
     return null;
   }
 
-  // Default rendering for text, number, date, etc.
+  if ((question.type === 'select' && question.variant === 'dropdown' && question.options) || question.id === 'insuranceTypes') {
+    const options = question.options as string[];
+    return (
+      <div className="mb-4 text-right" dir="rtl" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+          <label
+            className="block mb-1"
+            style={{
+              width: 404,
+              fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
+              fontStyle: 'normal',
+              fontWeight: 500,
+              fontSize: 14,
+              lineHeight: '19px',
+              textAlign: 'right',
+              color: '#1A4D2C',
+              alignSelf: 'stretch',
+              flexGrow: 0,
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+            }}
+          >
+            {question.label}
+          </label>
+          <select
+            className="border rounded px-3 py-2 w-full text-right border-[#D1D5DB] focus:border-[#38E18E] focus:ring-2 focus:ring-[#38E18E] transition-colors mt-2"
+            style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', fontSize: 15, color: '#124E31', background: '#fff', minWidth: 120 }}
+            value={value ?? ''}
+            onChange={e => onChange(e.target.value)}
+            disabled={disabled}
+          >
+            <option value="" disabled>{question.placeholder || 'בחר אפשרות'}</option>
+            {options.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+    );
+  }
+
+  if (
+    question.id === 'tenantIdNumber' ||
+    question.id === 'landlordId' ||
+    question.id === 'guarantor1Id' ||
+    question.id === 'guarantor2Id'
+  ) {
+    const [localValue, setLocalValue] = React.useState(typeof value === 'string' ? value : '');
+    const [localError, setLocalError] = React.useState(false);
+
+    React.useEffect(() => {
+      setLocalValue(typeof value === 'string' ? value : '');
+      if (!value) setLocalError(false);
+    }, [value]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      let val = e.target.value.replace(/\D/g, ''); // Only digits
+      if (val.length > 9) val = val.slice(0, 9);
+      setLocalValue(val);
+      onChange(val);
+      if (val.length === 9) {
+        setTouched(true);
+        setLocalError(!isValidIsraeliId(val));
+      } else {
+        setLocalError(false);
+      }
+    };
+
+    const handleBlur = () => {
+      setTouched(true);
+      if (localValue && localValue.length === 9) {
+        setLocalError(!isValidIsraeliId(localValue));
+      } else if (localValue && localValue.length > 0) {
+        setLocalError(true); // Not enough digits
+      } else {
+        setLocalError(false);
+      }
+    };
+
+    return (
+      <div className="mb-4 text-right" dir="rtl" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+          <label
+            className="block mb-1"
+            style={{
+              width: 404,
+              fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
+              fontStyle: 'normal',
+              fontWeight: 500,
+              fontSize: 14,
+              lineHeight: '19px',
+              textAlign: 'right',
+              color: '#1A4D2C',
+              alignSelf: 'stretch',
+              flexGrow: 0,
+            }}
+          >
+            {question.label}
+          </label>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={9}
+            className={`border rounded px-3 py-2 w-full text-right border-[#D1D5DB] focus:border-[#38E18E] focus:ring-2 focus:ring-[#38E18E] transition-colors${localError ? ' border-red-500 ring-red-200' : ''}`}
+            placeholder={question.placeholder || ''}
+            value={localValue}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            disabled={disabled}
+            style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
+          />
+        </div>
+        {localError && (
+          <div className="mt-1 text-sm text-red-600" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
+            מספר תעודת זהות לא תקין
+          </div>
+        )}
+        {question.helperText && (
+          <div className="mt-1 text-sm text-gray-500" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>{question.helperText}</div>
+        )}
+      </div>
+    );
+  }
+
+  // Button group for guarantorsCount
+  if (question.id === 'guarantorsCount') {
+    const options = ['1', '2'];
+    return (
+      <div className="mb-4 text-right" dir="rtl" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+          <label
+            className="block mb-1"
+            style={{
+              width: 404,
+              height: 19,
+              fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
+              fontStyle: 'normal',
+              fontWeight: 500,
+              fontSize: 14,
+              lineHeight: '19px',
+              textAlign: 'right',
+              color: '#1A4D2C',
+              alignSelf: 'stretch',
+              flexGrow: 0,
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+            }}
+          >
+            {question.label}
+          </label>
+          <div className="flex flex-wrap gap-3 mt-2" style={{ maxWidth: 500 }}>
+            {options.map(opt => {
+              const selected = value === opt;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  className="px-3 py-2 rounded-lg font-medium shadow-sm transition-all"
+                  style={{
+                    fontSize: 15,
+                    background: selected ? '#38E18E' : '#fff',
+                    color: selected ? '#fff' : '#124E31',
+                    border: selected ? '2px solid #38E18E' : '2px solid #D1D5DB',
+                    minWidth: 80,
+                    fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
+                    fontWeight: 500,
+                    boxShadow: selected ? '0 2px 8px #38E18E22' : '0 1px 4px #0001',
+                  }}
+                  onClick={() => onChange(opt)}
+                >
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Phone and numeric field logic
+  if (PHONE_FIELD_IDS.includes(question.id)) {
+    return (
+      <div className="mb-4 text-right" dir="rtl" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+          <label className="block mb-1" style={{ width: '100%', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', fontWeight: 500, fontSize: 14, color: '#1A4D2C', textAlign: 'right' }}>{question.label}</label>
+          <input
+            type="tel"
+            inputMode="tel"
+            pattern="[0-9\-]*"
+            className="border rounded px-3 py-2 w-full text-right border-[#D1D5DB] focus:border-[#38E18E] focus:ring-2 focus:ring-[#38E18E] transition-colors"
+            placeholder={question.placeholder || ''}
+            value={value ?? ''}
+            onChange={e => onChange(e.target.value.replace(/[^0-9\-]/g, ''))}
+            disabled={disabled}
+            style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
+          />
+        </div>
+        {question.helperText && (
+          <div className="mt-1 text-sm text-gray-500" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>{question.helperText}</div>
+        )}
+      </div>
+    );
+  }
+  if (NUMERIC_FIELD_IDS.includes(question.id)) {
+    return (
+      <div className="mb-4 text-right" dir="rtl" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+          <label className="block mb-1" style={{ width: '100%', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', fontWeight: 500, fontSize: 14, color: '#1A4D2C', textAlign: 'right' }}>{question.label}</label>
+          <input
+            type="number"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            className="border rounded px-3 py-2 w-full text-right border-[#D1D5DB] focus:border-[#38E18E] focus:ring-2 focus:ring-[#38E18E] transition-colors"
+            placeholder={question.placeholder || ''}
+            value={value ?? ''}
+            onChange={e => onChange(e.target.value.replace(/\D/g, ''))}
+            disabled={disabled}
+            style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
+          />
+        </div>
+        {question.helperText && (
+          <div className="mt-1 text-sm text-gray-500" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>{question.helperText}</div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="mb-4 text-right" dir="rtl" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>

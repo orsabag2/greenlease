@@ -51,6 +51,9 @@ interface ContractMeta {
   lateInterestFixedAmount?: string;
   evacuationPenaltyType?: string;
   evacuationPenaltyFixedAmount?: string;
+  buildingNumber?: string;
+  floor?: string;
+  entrance?: string;
   [key: string]: string | boolean | undefined; // Allow any other properties
 }
 
@@ -85,6 +88,11 @@ function formatContractText(text: string): string {
 export default function ContractPreviewPage() {
   const [contract, setContract] = useState('');
   const [meta, setMeta] = useState<ContractMeta | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailToSend, setEmailToSend] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     // Update document title with apartment address when metadata is available
@@ -190,98 +198,24 @@ ${signatureLines}`;
       });
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.html2pdf) {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!emailToSend && typeof window !== 'undefined') {
+      const userEmail = localStorage.getItem('userEmail'); // or get from your auth state
+      if (userEmail) setEmailToSend(userEmail);
+    }
+  }, []);
+
   return (
     <>
-      <style jsx global>{`
-        /* Base styles for both preview and print */
-        .main-section {
-          font-weight: 700 !important;
-          font-size: 1.2em !important;
-          margin-top: 1em !important;
-          margin-bottom: 1em !important;
-        }
-
-        /* Contract parties section styling */
-        .contract-party-section {
-          margin: 1em 0;
-          color: inherit;
-          white-space: pre-line;
-        }
-
-        /* Remove restrictive line height and spacing */
-        .contract-preview {
-          line-height: 1.6 !important;
-          white-space: pre-line !important;
-        }
-        
-        .contract-preview p,
-        .contract-preview div {
-          margin: 0.3em 0;
-          line-height: 1.6 !important;
-        }
-
-        /* Add proper spacing between sections */
-        .contract-preview > div:not(:last-child) {
-          margin-bottom: 0.5em;
-        }
-
-        /* Special spacing for main sections */
-        .contract-preview div.main-section {
-          margin-top: 1em;
-          margin-bottom: 0.7em;
-        }
-
-        /* Ensure proper text wrapping */
-        .contract-preview strong {
-          white-space: nowrap;
-        }
-
-        @media print {
-          header.print-hidden,
-          div.print-spacer {
-            display: none !important;
-          }
-          @page {
-            margin: 2.5cm;
-          }
-          .contract-preview {
-            padding: 0 !important;
-            font-size: 11pt !important;
-          }
-          .contract-title {
-            font-size: 16pt !important;
-            margin-bottom: 8px !important;
-          }
-          .contract-subtitle {
-            font-size: 13pt !important;
-            margin-bottom: 8px !important;
-          }
-          .contract-date-row {
-            font-size: 11pt !important;
-            margin-bottom: 16px !important;
-          }
-          /* Make section 16 start on a new page */
-          [data-section="16"] {
-            page-break-before: always !important;
-          }
-        }
-
-        /* Add these styles to your existing styles section */
-        .signature-header {
-          font-size: 1.4em;
-          font-weight: bold;
-          text-align: center;
-          margin: 2em 0;
-          display: block;
-        }
-
-        /* Signature section styling */
-        .signature-block {
-          margin: 2em 0;
-          line-height: 2;
-          display: block;
-        }
-      `}</style>
       <main className="min-h-screen flex flex-col items-center bg-white text-gray-900" style={{ fontFamily: 'var(--contract-font)' }} dir="rtl">
         {/* Sticky Header with Preview Title and Print Button */}
         <header className="print-hidden" style={{
@@ -298,27 +232,152 @@ ${signatureLines}`;
           padding: '16px 32px',
           zIndex: 1000
         }}>
-          <div className="text-xl font-bold">תצוגה מקדימה של החוזה</div>
-          <button
-            className="bg-[#38E18E] text-white font-bold px-6 py-2 rounded-lg shadow hover:bg-[#2bc77a] transition-colors"
-            onClick={() => window.print()}
-          >
-            הדפס
-          </button>
+          <div className="text-xl font-bold" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>תצוגה מקדימה של החוזה</div>
+          <div className="flex gap-2">
+            <button
+              className="bg-[#2563eb] text-white font-bold px-6 py-2 rounded-lg shadow hover:bg-[#1d4ed8] transition-colors flex items-center justify-center min-w-[120px]"
+              disabled={downloading}
+              onClick={async () => {
+                setDownloading(true);
+                try {
+                  const contractNode = document.querySelector('.contract-preview');
+                  if (!contractNode) return;
+                  let css = '';
+                  for (const sheet of Array.from(document.styleSheets)) {
+                    try {
+                      css += Array.from(sheet.cssRules).map(rule => rule.cssText).join(' ');
+                    } catch (e) { /* ignore CORS issues */ }
+                  }
+                  const html = contractNode.outerHTML;
+                  const response = await fetch('/api/generate-pdf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ html, css }),
+                  });
+                  if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'contract.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    window.URL.revokeObjectURL(url);
+                  } else {
+                    alert('PDF generation failed');
+                  }
+                } finally {
+                  setDownloading(false);
+                }
+              }}
+            >
+              {downloading ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                  מעבד PDF...
+                </span>
+              ) : (
+                'הורד PDF'
+              )}
+            </button>
+            <button
+              className="bg-blue-500 text-white font-bold px-6 py-2 rounded-lg shadow hover:bg-blue-700 transition-colors"
+              onClick={() => setShowEmailModal(true)}
+            >
+              שלח במייל
+            </button>
+            <button
+              className="bg-[#38E18E] text-white font-bold px-6 py-2 rounded-lg shadow hover:bg-[#2bc77a] transition-colors"
+              onClick={() => window.print()}
+            >
+              הדפס
+            </button>
+          </div>
         </header>
+        {/* Email Modal */}
+        {showEmailModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, width: '100vw', height: '100vh',
+            background: 'rgba(0,0,0,0.25)', zIndex: 2000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'Noto Sans Hebrew, Arial, sans-serif',
+          }}>
+            <div style={{ background: '#fff', borderRadius: 12, padding: 32, minWidth: 320, boxShadow: '0 2px 16px rgba(0,0,0,0.12)', fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+              <div className="mb-4 text-lg font-bold" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>שלח את החוזה במייל</div>
+              <input
+                type="email"
+                value={emailToSend}
+                onChange={e => setEmailToSend(e.target.value)}
+                className="border rounded px-3 py-2 w-full mb-4"
+                placeholder="הזן כתובת מייל"
+                style={{ direction: 'ltr', fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+              />
+              <div className="flex gap-2">
+                <button
+                  className="bg-blue-500 text-white font-bold px-6 py-2 rounded-lg shadow hover:bg-blue-700 transition-colors flex items-center justify-center min-w-[100px]"
+                  disabled={sending}
+                  onClick={async () => {
+                    setSending(true);
+                    setSendResult(null);
+                    const contractNode = document.querySelector('.contract-preview');
+                    if (!contractNode) return;
+                    let css = '';
+                    for (const sheet of Array.from(document.styleSheets)) {
+                      try {
+                        css += Array.from(sheet.cssRules).map(rule => rule.cssText).join(' ');
+                      } catch (e) {}
+                    }
+                    const html = contractNode.outerHTML;
+                    const response = await fetch('/api/send-pdf', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ html, css, email: emailToSend }),
+                    });
+                    setSending(false);
+                    if (response.ok) {
+                      setSendResult('החוזה נשלח למייל!');
+                    } else {
+                      setSendResult('שליחת המייל נכשלה');
+                    }
+                  }}
+                  style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                >
+                  {sending ? (
+                    <span className="flex items-center gap-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                      שולח...
+                    </span>
+                  ) : (
+                    'שלח'
+                  )}
+                </button>
+                <button
+                  className="bg-gray-200 text-gray-800 font-bold px-6 py-2 rounded-lg shadow hover:bg-gray-300 transition-colors"
+                  onClick={() => setShowEmailModal(false)}
+                  style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                >
+                  ביטול
+                </button>
+              </div>
+              {sendResult && <div className="mt-4 text-center text-sm" style={{ color: sendResult.includes('נשלח') ? '#38E18E' : '#e11d48', fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>{sendResult}</div>}
+            </div>
+          </div>
+        )}
         {/* Spacer to prevent content from being hidden under the sticky header */}
         <div className="print-spacer" style={{ height: 72 }} />
         
         {/* Contract Content */}
         <div className="contract-preview max-w-4xl mx-auto w-full px-8 whitespace-pre-wrap" style={{ lineHeight: 'initial' }}>
           {/* Contract Title and Header */}
-          <div className="contract-title text-center font-bold text-4xl underline mb-0 mt-10">
+          <div className="contract-title text-center font-bold text-4xl underline mb-0 mt-10" style={{ fontFamily: 'Frank Ruhl Libre, Noto Sans Hebrew, Arial, sans-serif', fontWeight: 700, fontSize: '2.25rem', textDecoration: 'underline', marginBottom: 0, marginTop: '2.5rem', letterSpacing: '0.01em', color: '#111', lineHeight: 1.1 }}>
             הסכם שכירות למגורים
           </div>
-          <div className="contract-subtitle text-center text-lg text-gray-800 mb-3 font-medium">
+          <div className="contract-subtitle text-center text-lg text-gray-800 mb-3 font-medium" style={{ fontFamily: 'Frank Ruhl Libre, Noto Sans Hebrew, Arial, sans-serif', fontWeight: 600, fontSize: '1.18rem', color: '#111', marginBottom: 18, marginTop: 0, letterSpacing: '0.01em', lineHeight: 1.2 }}>
             (שכירות בלתי מוגנת)
           </div>
-          <div className="contract-date-row text-center text-base text-gray-800 mb-3">
+          <div className="contract-date-row text-center text-base text-gray-800 mb-3" style={{ fontFamily: 'Frank Ruhl Libre, Noto Sans Hebrew, Arial, sans-serif', fontWeight: 400, fontSize: '1.05rem', color: '#222', marginBottom: 12, marginTop: 0, letterSpacing: '0.01em', lineHeight: 1.2 }}>
             שנעשה ונחתם ב{meta?.includeAgreementDetails ? (meta?.agreementCity || '_______') : '_______'}, בתאריך {meta?.includeAgreementDetails ? formatDate(meta?.agreementDate) : '_______'}.
           </div>
           <div style={{ lineHeight: 1.4 }}>

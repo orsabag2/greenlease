@@ -17,7 +17,7 @@
 
 1. פרטי המושכר
 
-1.1 המושכר הינו דירה ברחוב {{street}}, מספר {{apartmentNumber}}, קומה {{floor}}, כניסה {{entrance}}, בעיר {{propertyCity}} (להלן: "המושכר").
+1.1 המושכר הינו דירה ברחוב {{street}}, מספר בניין {{buildingNumber}}, מספר דירה {{apartmentNumber}}, קומה {{floor}}, כניסה {{entrance}}, בעיר {{propertyCity}} (להלן: "המושכר").
 1.2 המושכר כולל {{apartmentRooms}} חדרים.
 1.3 המושכר כולל את הפריטים הבאים: {{apartmentFeatures}}.
 1.4 מספר החניה: {{parkingClause}}

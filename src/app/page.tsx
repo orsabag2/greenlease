@@ -6,6 +6,11 @@ import { generateSummarySection } from '../utils/contractMerge';
 import { Question as QType } from '../utils/visibilityLogic';
 import { AnimatePresence, motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
+import GmailSignIn from '../components/GmailSignIn';
+import { auth, db } from '../utils/firebase';
+import type { User } from 'firebase/auth';
+import { collection, addDoc, setDoc, doc } from 'firebase/firestore';
+import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 
 // Build steps dynamically from groups
 const GROUPS = [
@@ -26,7 +31,7 @@ const GROUPS = [
     innerGroups: [
       {
         title: 'עיר ומיקום',
-        ids: ['propertyCity', 'street', 'apartmentNumber', 'floor', 'entrance'],
+        ids: ['propertyCity', 'street', 'buildingNumber', 'apartmentNumber', 'floor', 'entrance'],
       },
       {
         title: 'פרטי הדירה',
@@ -138,22 +143,70 @@ const STEP_ICONS: Record<string, string> = {
 export default function HomePage() {
   const [questions, setQuestions] = useState<QType[]>([]);
   const [template, setTemplate] = useState('');
-  const [answers, setAnswers] = useState<Answers>({
-    landlords: [{}],
-    tenants: [{}],
+  const [answers, setAnswers] = useState<Answers>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('contractMeta');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...parsed,
+          landlords: Array.isArray(parsed.landlords) ? parsed.landlords : [{}],
+          tenants: Array.isArray(parsed.tenants) ? parsed.tenants : [{}],
+        };
+      }
+    }
+    return {
+      landlords: [{}],
+      tenants: [{}],
+    };
   });
   const [contract, setContract] = useState('');
   const [step, setStep] = useState(0);
   const [tenantCount, setTenantCount] = useState<number>(1);
   const [innerStep, setInnerStep] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [hasSaved, setHasSaved] = useState(false);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Restore step and innerStep from localStorage on mount (for all users, not just after login)
+  useEffect(() => {
+    const savedStep = localStorage.getItem('contractStep');
+    const savedInnerStep = localStorage.getItem('contractInnerStep');
+    if (savedStep !== null && !isNaN(Number(savedStep))) {
+      setStep(Number(savedStep));
+    }
+    if (savedInnerStep !== null && !isNaN(Number(savedInnerStep))) {
+      setInnerStep(Number(savedInnerStep));
+    }
+  }, []);
+
+  // Save step and innerStep to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('contractStep', String(step));
+  }, [step]);
+  useEffect(() => {
+    localStorage.setItem('contractInnerStep', String(innerStep));
+  }, [innerStep]);
 
   useEffect(() => {
     // Load questions and template
-    import('../../data/full_rental_contract_questions.json').then(mod => setQuestions((mod.default || mod) as QType[]));
+    fetch('/data/full_rental_contract_questions.json')
+      .then(res => res.json())
+      .then(setQuestions);
     fetch('/data/master-template.txt')
       .then(res => res.text())
       .then(setTemplate);
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(u => {
+      setUser(u);
+      setLoadingAuth(false);
+      // Do not auto-advance step; always start at 0 (פרטי המשכיר)
+    });
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -187,7 +240,7 @@ export default function HomePage() {
       questions: group.innerGroups ? [] : questions.filter(q => (group.ids ?? []).includes(q.id)),
       innerGroups: group.innerGroups !== undefined ? group.innerGroups : undefined,
     };
-  }).filter(g => g.questions.length > 0 || (g.innerGroups && g.innerGroups.length > 0));
+  }).filter(g => g.questions.length > 0 || g.innerGroups !== undefined);
 
   // If tenantCount is set, expand tenant steps
   if (tenantCount && tenantCount > 1) {
@@ -224,10 +277,12 @@ export default function HomePage() {
     const textGray = '#7A8B99';
     const activeText = darkGreen;
 
+    const steps = allSteps;
+
     // Mobile: show only current step and hamburger
     if (isMobile) {
       // Progress bar width
-      const progress = Math.max(0, Math.min(1, currentStep / (STEPS.length - 1)));
+      const progress = Math.max(0, Math.min(1, currentStep / (steps.length - 1)));
       return (
         <>
           <div className="fixed top-0 left-0 w-full z-30 flex flex-col items-center justify-center py-1 px-2 bg-white" style={{ borderBottom: '1.5px solid #E0E7EF', borderRadius: '0 0 18px 18px', minHeight: 36 }}>
@@ -262,7 +317,7 @@ export default function HomePage() {
                   }}
                   onClick={() => setMobileMenuOpen(true)}
                 >
-                  {STEPS[currentStep]?.label}
+                  {steps[currentStep]?.label}
                   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M6 7l3 3 3-3" stroke="#124E31" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
@@ -282,7 +337,7 @@ export default function HomePage() {
                     </button>
                   </div>
                   <div className="flex flex-col gap-2 overflow-y-auto">
-                    {Array.isArray(STEPS) && STEPS.length > 0 ? STEPS.map((s, i) => (
+                    {Array.isArray(steps) && steps.length > 0 ? steps.map((s, i) => (
                       <button
                         key={s.key}
                         className={`flex items-center gap-2 px-2 py-2 rounded-lg text-right ${i === currentStep ? 'bg-[#38E18E] text-white font-bold' : 'bg-white text-[#124E31]'}`}
@@ -304,13 +359,13 @@ export default function HomePage() {
 
     // Desktop: show full stepper
     return (
-      <div className="fixed top-0 left-0 w-full z-30 flex justify-center items-center py-5 px-2 bg-white" style={{ borderBottom: '1.5px solid #E0E7EF', borderRadius: '0 0 18px 18px', minHeight: 48 }}>
-        <div className="flex justify-center items-center w-full overflow-x-auto scrollbar-hide gap-0" style={{ direction: 'rtl', maxWidth: 900 }}>
-          {Array.isArray(STEPS) && STEPS.length > 0 ? STEPS.map((s, i) => (
+      <div className="fixed top-0 left-0 w-full z-30 flex justify-center items-center pt-5 px-2 bg-white" style={{ borderBottom: '1.5px solid #E0E7EF', borderRadius: '0 0 18px 18px', minHeight: 48, paddingBottom: 0 }}>
+        <div className="flex justify-center items-start w-full overflow-x-auto scrollbar-hide gap-0" style={{ direction: 'rtl', maxWidth: 900 }}>
+          {Array.isArray(steps) && steps.length > 0 ? steps.map((s, i) => (
             <div
               key={s.key}
               className="flex flex-col items-center min-w-[40px] mx-1 cursor-pointer"
-              style={{ justifyContent: 'flex-end' }}
+              style={{ justifyContent: 'flex-start', alignItems: 'center', height: 70 }}
               onClick={() => handleStepClick(i)}
             >
               <div
@@ -320,16 +375,19 @@ export default function HomePage() {
                   height: 20,
                   borderRadius: '50%',
                   border: `2px solid ${i < currentStep ? green : i === currentStep ? green : gray}`,
-                  background: i < currentStep ? green : i === currentStep ? '#fff' : '#fff',
+                  background: i < currentStep ? green : i === currentStep ? green : '#fff',
                   color: i < currentStep ? '#fff' : i === currentStep ? green : gray,
                   fontSize: 12,
-                  marginBottom: 4,
                   position: 'relative',
                   transition: 'background 0.2s, border 0.2s',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  marginBottom: 4,
                 }}
               >
                 {i < currentStep ? (
-                  <svg width="12" height="12" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block', margin: '0 auto' }}>
                     <path d="M5 9.5L8 12.5L13 7.5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 ) : (
@@ -339,7 +397,21 @@ export default function HomePage() {
               <div
                 className="text-xs text-center transition-all duration-200 font-medium"
                 title={s.label}
-                style={{ color: i === currentStep ? activeText : textGray, whiteSpace: 'normal', wordBreak: 'break-word', maxWidth: 50, minHeight: 18, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', fontWeight: i === currentStep ? 700 : 500, fontSize: 12 }}
+                style={{
+                  color: i === currentStep ? activeText : textGray,
+                  whiteSpace: 'normal',
+                  wordBreak: 'break-word',
+                  maxWidth: 50,
+                  minHeight: 18,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'flex-start',
+                  fontWeight: i === currentStep ? 700 : 500,
+                  fontSize: 12,
+                  marginTop: 0,
+                  textAlign: 'center',
+                }}
               >
                 {s.label}
               </div>
@@ -377,20 +449,6 @@ export default function HomePage() {
     }
   }, []);
 
-  useEffect(() => {
-    // Load saved answers from localStorage
-    const savedAnswers = localStorage.getItem('contractAnswers');
-    if (savedAnswers) {
-      const parsed = JSON.parse(savedAnswers);
-      setAnswers((prev) => ({
-        ...prev,
-        ...parsed,
-        landlords: Array.isArray(parsed.landlords) ? parsed.landlords : [{}],
-        tenants: Array.isArray(parsed.tenants) ? parsed.tenants : [{}],
-      }));
-    }
-  }, [answers.landlords]); // Include answers.landlords in dependency array
-
   const handleAddTenant = () => {
     setAnswers(prev => ({
       ...prev,
@@ -417,473 +475,612 @@ export default function HomePage() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  const allSteps = [
+    ...GROUPS.map(g => ({ label: g.title, key: g.title })),
+    { label: 'סיכום', key: 'summary' },
+    { label: 'תשלום', key: 'payment' },
+    { label: 'תצוגה מקדימה', key: 'preview' },
+  ];
+
+  // Add a new effect to update Firestore on every answers change (if user is logged in)
+  useEffect(() => {
+    if (!user) return;
+    // Check if answers object has real data (not just empty landlords/tenants)
+    const hasRealData = Object.entries(answers).some(([key, value]) => {
+      if (key === 'landlords' || key === 'tenants') {
+        // Check if array has at least one non-empty object
+        return Array.isArray(value) && value.some(obj => obj && Object.keys(obj).length > 0 && Object.values(obj).some(v => v !== undefined && v !== ''));
+      }
+      return value !== undefined && value !== '' && value !== null;
+    });
+    if (!hasRealData) return;
+    const saveAnswersToFirestore = async () => {
+      try {
+        await setDoc(doc(db, 'formAnswers', user.uid), {
+          userId: user.uid,
+          answers,
+          updatedAt: new Date(),
+        }, { merge: true });
+      } catch (error) {
+        console.error('Error saving answers to Firestore:', error);
+      }
+    };
+    saveAnswersToFirestore();
+  }, [user, answers]);
+
+  // Detect dark mode
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const match = window.matchMedia('(prefers-color-scheme: dark)');
+      setIsDarkMode(match.matches);
+      const handler = (e: MediaQueryListEvent) => setIsDarkMode(e.matches);
+      match.addEventListener('change', handler);
+      return () => match.removeEventListener('change', handler);
+    }
+  }, []);
+
+  // Render the Gmail Sign-In modal as an overlay on top of the questions, with a light, blurred background
+  const showSignInModal = !user && !loadingAuth;
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !window.html2pdf) {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+      script.async = true;
+      document.body.appendChild(script);
+    }
+  }, []);
+
   return (
-    <main className={`min-h-screen flex flex-col items-center${isMobile ? ' mobile-bottom-padding' : ''}`} style={{ paddingTop: 80, background: isMobile ? '#fff' : '#EDF5EE' }} dir="rtl">
-      <Stepper currentStep={lastVisibleStepIndex} />
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={step}
-          initial={{ opacity: 0, x: 40 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -40 }}
-          transition={{ duration: 0.35, ease: 'easeInOut' }}
-          className={isMobile ? 'w-full bg-white rounded-none p-0 flex flex-col items-center mt-20' : 'w-full max-w-xl bg-white rounded-xl shadow-lg p-8 flex flex-col items-center mt-20'}
-          style={isMobile ? { alignItems: 'stretch', boxShadow: 'none', borderRadius: 0 } : { alignItems: 'stretch' }}
+    <div style={{ position: 'relative' }}>
+      {showSignInModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: 'rgba(255, 255, 255, 0.11)',
+            backdropFilter: 'blur(5px)',
+            WebkitBackdropFilter: 'blur(5px)',
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
         >
-          {/* Step name/label and explanation */}
-          {step < grouped.length && (
-            <>
-              {(() => {
-                let iconKey = grouped[step]?.title;
-                if (grouped[step]?.innerGroups && grouped[step]?.innerGroups.length > 0) {
-                  const innerTitle = grouped[step]?.innerGroups?.[innerStep]?.title;
-                  if (innerTitle && STEP_ICONS[innerTitle]) {
-                    iconKey = innerTitle;
-                  }
-                }
-                return STEP_ICONS[iconKey] ? (
-                  <div className="flex flex-col items-center w-full mb-4">
-                    <img
-                      src={STEP_ICONS[iconKey]}
-                      alt={iconKey + ' Icon'}
-                      style={{ width: 92, height: 70, marginBottom: 8 }}
-                    />
-                  </div>
-                ) : null;
-              })()}
-              <div className="flex flex-col items-center w-full" style={isMobile ? { marginBottom: 2, marginTop: 2 } : { marginBottom: 4 }}>
-                <div
-                  className="text-xl font-semibold text-center"
-                  dir="rtl"
-                  style={isMobile ? {
-                    width: '100%',
-                    fontFamily: 'Noto Sans Hebrew',
-                    fontWeight: 700,
-                    fontSize: 15,
-                    lineHeight: '18px',
-                    textAlign: 'center',
-                    color: '#1A4D2C',
-                    margin: 0,
-                    padding: 0,
-                  } : {
-                    width: 404,
-                    height: 27,
-                    fontFamily: 'Noto Sans Hebrew',
-                    fontStyle: 'normal',
-                    fontWeight: 700,
-                    fontSize: 20,
-                    lineHeight: '27px',
-                    textAlign: 'center',
-                    color: '#1A4D2C',
-                    alignSelf: 'center',
-                    flexGrow: 0,
-                    marginLeft: 'auto',
-                    marginRight: 'auto',
-                  }}
-                >
-                  {grouped[step]?.title}
-                </div>
-                <div
-                  className="text-sm text-center"
-                  dir="rtl"
-                  style={isMobile ? {
-                    width: '100%',
-                    fontFamily: 'Noto Sans Hebrew',
-                    fontWeight: 400,
-                    fontSize: 12,
-                    lineHeight: '15px',
-                    textAlign: 'center',
-                    color: '#1A4D2C',
-                    margin: 0,
-                    padding: 0,
-                  } : {
-                    width: 404,
-                    height: 19,
-                    fontFamily: 'Noto Sans Hebrew',
-                    fontStyle: 'normal',
-                    fontWeight: 400,
-                    fontSize: 14,
-                    lineHeight: '19px',
-                    textAlign: 'center',
-                    color: '#1A4D2C',
-                    alignSelf: 'center',
-                    flexGrow: 0,
-                    marginBottom: 24,
-                    marginLeft: 'auto',
-                    marginRight: 'auto',
-                  }}
-                >
-                  {grouped[step]?.innerGroups && grouped[step]?.innerGroups.length > 0
-                    ? STEP_EXPLANATIONS[grouped[step]?.innerGroups?.[innerStep]?.title ?? '']
-                    : STEP_EXPLANATIONS[grouped[step]?.title?.replace(/פרטי שוכר \\d+/, 'פרטי השוכר')] || ''}
-                </div>
-              </div>
-            </>
-          )}
-          {/* Question group steps */}
-          {step < grouped.length && (
-            <div className="w-full">
-              {/* If this is the property step with innerGroups, show only one innerGroup at a time */}
-              {grouped[step]?.innerGroups && grouped[step]?.innerGroups.length > 0 ? (
-                <FormRenderer
-                  groups={[{
-                    title: grouped[step]?.innerGroups?.[innerStep]?.title ?? '',
-                    questions: questions.filter(q => grouped[step]?.innerGroups?.[innerStep]?.ids?.includes(q.id)),
-                  }]}
-                  answers={safeAnswers}
-                  setAnswers={setAnswers}
-                  onComplete={() => {
-                    if (grouped[step]?.innerGroups && innerStep < grouped[step].innerGroups.length - 1) {
-                      setInnerStep(innerStep + 1);
-                    } else {
-                      setStep(step + 1);
-                      setInnerStep(0);
-                    }
-                  }}
-                  onBack={innerStep > 0 ? () => setInnerStep(innerStep - 1) : (step > 0 ? () => { setStep(step - 1); setInnerStep(0); } : undefined)}
-                />
-              ) : (
-                <FormRenderer
-                  groups={[grouped[step]]}
-                  answers={safeAnswers}
-                  setAnswers={setAnswers}
-                  onComplete={isTenantStep(grouped[step]) ? undefined : () => setStep(step + 1)}
-                  onBack={step > 0 ? () => setStep(step - 1) : undefined}
-                  tenantIndex={'tenantIndex' in grouped[step] ? (grouped[step] as { tenantIndex?: number }).tenantIndex : undefined}
-                  showContinueButton={isTenantStep(grouped[step])}
-                  onContinue={() => setStep(step + 1)}
-                  isLastTenant={isTenantStep(grouped[step]) && step === grouped.length - 1}
-                />
-              )}
-              {grouped[step]?.title === 'פרטי המשכיר' && (
-                <button
-                  type="button"
-                  className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95 mt-6 mx-auto block"
-                  style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', textAlign: 'center' }}
-                  onClick={() => setStep(step + 1)}
-                >
-                  המשך
-                </button>
-              )}
-            </div>
-          )}
-          {/* Summary step */}
-          {step === grouped.length && (
-            <div className="w-full flex flex-col items-center justify-center min-h-[60vh]">
-              {/* Final icon */}
-              <div className="flex flex-col items-center w-full mb-4">
-                <img
-                  src="/question-icons/final.png"
-                  alt="סיכום Icon"
-                  style={{ width: 80, height: 60, marginBottom: 8 }}
-                />
-              </div>
-              {/* Title and subtitle, consistent with other steps */}
-              <div className="flex flex-col items-center w-full" style={{ marginBottom: 4 }}>
-                <div
-                  className="text-lg font-semibold text-center"
-                  dir="rtl"
-                  style={{
-                    width: 404,
-                    height: 24,
-                    fontFamily: 'Noto Sans Hebrew',
-                    fontStyle: 'normal',
-                    fontWeight: 700,
-                    fontSize: 17,
-                    lineHeight: '24px',
-                    textAlign: 'center',
-                    color: '#1A4D2C',
-                    alignSelf: 'center',
-                    flexGrow: 0,
-                    marginLeft: 'auto',
-                    marginRight: 'auto',
-                  }}
-                >
-                  סיכום התשובות שלך
-                </div>
-                <div
-                  className="text-xs text-center"
-                  dir="rtl"
-                  style={{
-                    width: 404,
-                    height: 16,
-                    fontFamily: 'Noto Sans Hebrew',
-                    fontStyle: 'normal',
-                    fontWeight: 500,
-                    fontSize: 12,
-                    lineHeight: '16px',
-                    textAlign: 'center',
-                    color: '#124E31',
-                  }}
-                >
-                  רגע לפני שממשיכים, הנה כל מה שמילאת עד עכשיו. אפשר לערוך כל חלק בנפרד.
-                </div>
-              </div>
-              <div className="max-w-2xl w-full flex flex-col gap-6 mb-8" dir="rtl">
-                {grouped.flatMap((group, groupIdx) => {
-                  if (group.title === 'פרטי השוכר' && Array.isArray(answers.tenants)) {
-                    return answers.tenants.map((tenant, tenantIdx) => (
-                      <div key={group.title + tenantIdx} className="bg-white border border-[#38E18E] rounded-2xl shadow p-6 text-right" dir="rtl">
-                        <div className="font-bold text-lg mb-3 text-right" style={{ color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>{group.title + ' ' + (tenantIdx + 1)}</div>
-                        <div className="flex flex-col gap-6 text-right" dir="rtl">
-                          {group.questions.map(q => {
-                            if (!q) return null;
-                            // Use tenant-specific answers for visibility and value
-                            const isVisible = require('../utils/visibilityLogic').isQuestionVisible(q, tenant);
-                            if (!isVisible) return null;
-                            let value = tenant[q.id];
-                            if (Array.isArray(value)) value = value.join(', ');
-                            const displayValue = (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) ? 'לא צוין' : value;
-                            return (
-                              <div key={q.id} className="flex flex-col items-end mb-2 text-right" dir="rtl">
-                                <span className="text-sm font-medium text-[#1A4D2C] text-right" style={{ fontFamily: 'Noto Sans Hebrew', textAlign: 'right' }}>{q.label}</span>
-                                <span className="text-base font-bold text-[#124E31] mt-1 text-right" style={{ fontFamily: 'Noto Sans Hebrew', textAlign: 'right' }}>{displayValue}</span>
-                              </div>
-                            );
-                          }).filter(x => x != null)}
+          <div style={{
+            background: '#fff',
+            borderRadius: 16,
+            boxShadow: '0 4px 32px rgba(56,225,142,0.15)',
+            padding: 40,
+            minWidth: 320,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}>
+            <div className="text-2xl font-bold mb-4" style={{ color: '#124E31', fontFamily: 'Noto Sans Hebrew', textAlign: 'center' }}>ברוכים הבאים</div>
+            <GmailSignIn />
+            <div style={{ marginTop: 24, color: '#124E31', fontWeight: 500, fontSize: 18, textAlign: 'center' }}>עליך להתחבר עם ג׳ימייל כדי להמשיך</div>
+          </div>
+        </div>
+      )}
+      <main className={`min-h-screen flex flex-col items-center${isMobile ? ' mobile-bottom-padding' : ''}`} style={{ paddingTop: 80, background: isMobile ? '#fff' : '#EDF5EE' }} dir="rtl">
+        <Stepper currentStep={step} />
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={step}
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -40 }}
+            transition={{ duration: 0.35, ease: 'easeInOut' }}
+            className={isMobile ? 'w-full bg-white rounded-none p-0 flex flex-col items-center mt-20' : 'w-full max-w-xl bg-white rounded-xl shadow-lg p-8 flex flex-col items-center mt-20'}
+            style={isMobile ? { alignItems: 'stretch', boxShadow: 'none', borderRadius: 0 } : { alignItems: 'stretch' }}
+          >
+            {/* All other steps only if user is signed in */}
+            {user ? (
+              <div style={{ width: '100%' }}>
+                {/* Step name/label and explanation */}
+                {step < grouped.length && (
+                  <>
+                    {(() => {
+                      let iconKey = grouped[step]?.title;
+                      if (grouped[step]?.innerGroups && grouped[step]?.innerGroups.length > 0) {
+                        const innerTitle = grouped[step]?.innerGroups?.[innerStep]?.title;
+                        if (innerTitle && STEP_ICONS[innerTitle]) {
+                          iconKey = innerTitle;
+                        }
+                      }
+                      return STEP_ICONS[iconKey] ? (
+                        <div className="flex flex-col items-center w-full mb-4">
+                          <img
+                            src={STEP_ICONS[iconKey]}
+                            alt={iconKey + ' Icon'}
+                            style={{ width: 92, height: 70, marginBottom: 8 }}
+                          />
                         </div>
-                        <div className="flex justify-end mt-2">
-                          <button
-                            type="button"
-                            className="text-xs text-blue-600 underline font-bold hover:text-blue-800 transition-colors"
-                            onClick={() => setStep(groupIdx)}
-                          >
-                            ערוך
-                          </button>
+                      ) : null;
+                    })()}
+                    <div className="flex flex-col items-center w-full" style={isMobile ? { marginBottom: 2, marginTop: 2 } : { marginBottom: 4 }}>
+                      <div
+                        className="text-xl font-semibold text-center"
+                        dir="rtl"
+                        style={isMobile ? {
+                          width: '100%',
+                          fontFamily: 'Noto Sans Hebrew',
+                          fontWeight: 700,
+                          fontSize: 15,
+                          lineHeight: '18px',
+                          textAlign: 'center',
+                          color: '#1A4D2C',
+                          margin: 0,
+                          padding: 0,
+                        } : {
+                          width: 404,
+                          height: 27,
+                          fontFamily: 'Noto Sans Hebrew',
+                          fontStyle: 'normal',
+                          fontWeight: 700,
+                          fontSize: 20,
+                          lineHeight: '27px',
+                          textAlign: 'center',
+                          color: '#1A4D2C',
+                          alignSelf: 'center',
+                          flexGrow: 0,
+                          marginLeft: 'auto',
+                          marginRight: 'auto',
+                        }}
+                      >
+                        {grouped[step]?.title}
+                      </div>
+                      <div
+                        className="text-sm text-center"
+                        dir="rtl"
+                        style={isMobile ? {
+                          width: '100%',
+                          fontFamily: 'Noto Sans Hebrew',
+                          fontWeight: 400,
+                          fontSize: 12,
+                          lineHeight: '15px',
+                          textAlign: 'center',
+                          color: '#1A4D2C',
+                          margin: 0,
+                          padding: 0,
+                        } : {
+                          width: 404,
+                          height: 19,
+                          fontFamily: 'Noto Sans Hebrew',
+                          fontStyle: 'normal',
+                          fontWeight: 400,
+                          fontSize: 14,
+                          lineHeight: '19px',
+                          textAlign: 'center',
+                          color: '#1A4D2C',
+                          alignSelf: 'center',
+                          flexGrow: 0,
+                          marginBottom: 24,
+                          marginLeft: 'auto',
+                          marginRight: 'auto',
+                        }}
+                      >
+                        {grouped[step]?.innerGroups && grouped[step]?.innerGroups.length > 0
+                          ? STEP_EXPLANATIONS[grouped[step]?.innerGroups?.[innerStep]?.title ?? '']
+                          : STEP_EXPLANATIONS[grouped[step]?.title?.replace(/פרטי שוכר \\d+/, 'פרטי השוכר')] || ''}
+                      </div>
+                    </div>
+                  </>
+                )}
+                {/* Question group steps */}
+                {step < grouped.length && (
+                  <div className="w-full">
+                    {/* If this is the property step with innerGroups, show only one innerGroup at a time */}
+                    {grouped[step]?.innerGroups && grouped[step]?.innerGroups.length > 0 ? (
+                      <FormRenderer
+                        groups={[{
+                          title: grouped[step]?.innerGroups?.[innerStep]?.title ?? '',
+                          questions: questions.filter(q => grouped[step]?.innerGroups?.[innerStep]?.ids?.includes(q.id)),
+                        }]}
+                        answers={safeAnswers}
+                        setAnswers={setAnswers}
+                        onComplete={() => {
+                          if (grouped[step]?.innerGroups && innerStep < grouped[step].innerGroups.length - 1) {
+                            setInnerStep(innerStep + 1);
+                          } else {
+                            setStep(step + 1);
+                            setInnerStep(0);
+                          }
+                        }}
+                        onBack={innerStep > 0 ? () => setInnerStep(innerStep - 1) : (step > 0 ? () => { setStep(step - 1); setInnerStep(0); } : undefined)}
+                      />
+                    ) : (
+                      <FormRenderer
+                        groups={[grouped[step]]}
+                        answers={safeAnswers}
+                        setAnswers={setAnswers}
+                        onComplete={isTenantStep(grouped[step]) ? undefined : () => setStep(step + 1)}
+                        onBack={step > 0 ? () => setStep(step - 1) : undefined}
+                        tenantIndex={'tenantIndex' in grouped[step] ? (grouped[step] as { tenantIndex?: number }).tenantIndex : undefined}
+                        showContinueButton={isTenantStep(grouped[step])}
+                        onContinue={() => setStep(step + 1)}
+                        isLastTenant={isTenantStep(grouped[step]) && step === grouped.length - 1}
+                      />
+                    )}
+                    {grouped[step]?.title === 'פרטי המשכיר' && (
+                      <button
+                        type="button"
+                        className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95 mt-6 mx-auto block"
+                        style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', textAlign: 'center' }}
+                        onClick={() => setStep(step + 1)}
+                      >
+                        המשך
+                      </button>
+                    )}
+                  </div>
+                )}
+                {/* Summary step */}
+                {step === grouped.length && (
+                  <div className="w-full flex flex-col items-center justify-center min-h-[60vh]">
+                    {/* Final icon */}
+                    <div className="flex flex-col items-center w-full mb-4">
+                      <img
+                        src="/question-icons/final.png"
+                        alt="סיכום Icon"
+                        style={{ width: 80, height: 60, marginBottom: 8 }}
+                      />
+                    </div>
+                    {/* Title and subtitle, consistent with other steps */}
+                    <div className="flex flex-col items-center w-full" style={{ marginBottom: 4 }}>
+                      <div
+                        className="text-lg font-semibold text-center"
+                        dir="rtl"
+                        style={{
+                          width: 404,
+                          height: 24,
+                          fontFamily: 'Noto Sans Hebrew',
+                          fontStyle: 'normal',
+                          fontWeight: 700,
+                          fontSize: 17,
+                          lineHeight: '24px',
+                          textAlign: 'center',
+                          color: '#1A4D2C',
+                          alignSelf: 'center',
+                          flexGrow: 0,
+                          marginLeft: 'auto',
+                          marginRight: 'auto',
+                        }}
+                      >
+                        סיכום התשובות שלך
+                      </div>
+                      <div
+                        className="text-xs text-center"
+                        dir="rtl"
+                        style={{
+                          width: 404,
+                          height: 16,
+                          fontFamily: 'Noto Sans Hebrew',
+                          fontStyle: 'normal',
+                          fontWeight: 500,
+                          fontSize: 12,
+                          lineHeight: '16px',
+                          textAlign: 'center',
+                          color: '#124E31',
+                        }}
+                      >
+                        רגע לפני שממשיכים, הנה כל מה שמילאת עד עכשיו. אפשר לערוך כל חלק בנפרד.
+                      </div>
+                    </div>
+                    <div className="max-w-2xl w-full flex flex-col gap-6 mb-8" dir="rtl">
+                      {grouped.flatMap((group, groupIdx) => {
+                        if (group.title === 'פרטי השוכר' && Array.isArray(answers.tenants)) {
+                          return answers.tenants.map((tenant, tenantIdx) => (
+                            <div key={group.title + tenantIdx} className="bg-white border border-[#38E18E] rounded-2xl shadow p-6 text-right summary-green-card" dir="rtl">
+                              <div className="font-bold text-lg mb-3 text-right" style={{ color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>{group.title + ' ' + (tenantIdx + 1)}</div>
+                              <div className="flex flex-col gap-6 text-right" dir="rtl">
+                                {group.questions.map(q => {
+                                  if (!q) return null;
+                                  // Use tenant-specific answers for visibility and value
+                                  const isVisible = require('../utils/visibilityLogic').isQuestionVisible(q, tenant);
+                                  if (!isVisible) return null;
+                                  let value = tenant[q.id];
+                                  if (Array.isArray(value)) value = value.join(', ');
+                                  const displayValue = (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) ? 'לא צוין' : value;
+                                  return (
+                                    <div key={q.id} className="flex flex-col items-end mb-2 text-right" dir="rtl">
+                                      <span className="text-sm font-medium text-[#1A4D2C] text-right" style={{ fontFamily: 'Noto Sans Hebrew', textAlign: 'right' }}>{q.label}</span>
+                                      <span className="text-base font-bold text-[#124E31] mt-1 text-right" style={{ fontFamily: 'Noto Sans Hebrew', textAlign: 'right' }}>{displayValue}</span>
+                                    </div>
+                                  );
+                                }).filter(x => x != null)}
+                              </div>
+                              <div className="flex justify-end mt-2">
+                                <button
+                                  type="button"
+                                  className="text-xs text-blue-600 underline font-bold hover:text-blue-800 transition-colors"
+                                  onClick={() => setStep(groupIdx)}
+                                >
+                                  ערוך
+                                </button>
+                              </div>
+                            </div>
+                          )).filter(Boolean);
+                        } else {
+                          if (!group) return [];
+                          const node = (
+                            <div key={group.title} className="bg-white border border-[#38E18E] rounded-2xl shadow p-6 text-right summary-green-card" dir="rtl">
+                              <div className="font-bold text-lg mb-3 text-right" style={{ color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>{group.title}</div>
+                              <div className="flex flex-col gap-6 text-right" dir="rtl">
+                                {(group.innerGroups ? group.innerGroups.flatMap(g => g.ids) : group.questions.map(q => q.id)).map(qid => {
+                                  const q = questions.find(qq => qq.id === qid);
+                                  if (!q) return null;
+                                  if (!require('../utils/visibilityLogic').isQuestionVisible(q, answers)) return null;
+                                  let value;
+                                  if (group.title === 'פרטי המשכיר' && Array.isArray(answers.landlords)) {
+                                    value = answers.landlords[0]?.[qid];
+                                  } else {
+                                    value = answers[qid];
+                                  }
+                                  if (Array.isArray(value)) value = value.join(', ');
+                                  const displayValue = (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) ? 'לא צוין' : value;
+                                  return (
+                                    <div key={q.id} className="flex flex-col items-end mb-2 text-right" dir="rtl">
+                                      <span className="text-sm font-medium text-[#1A4D2C] text-right" style={{ fontFamily: 'Noto Sans Hebrew', textAlign: 'right' }}>{q.label}</span>
+                                      <span className="text-base font-bold text-[#124E31] mt-1 text-right" style={{ fontFamily: 'Noto Sans Hebrew', textAlign: 'right' }}>{displayValue}</span>
+                                    </div>
+                                  );
+                                }).filter(x => x != null)}
+                              </div>
+                              <div className="flex justify-end mt-2">
+                                <button
+                                  type="button"
+                                  className="text-xs text-blue-600 underline font-bold hover:text-blue-800 transition-colors"
+                                  onClick={() => setStep(groupIdx)}
+                                >
+                                  ערוך
+                                </button>
+                              </div>
+                            </div>
+                          );
+                          return node ? [node] : [];
+                        }
+                      })}
+                    </div>
+                    {isMobile ? (
+                      <div className="mobile-sticky-bottom-bar">
+                        <button
+                          type="button"
+                          className="w-full max-w-2xl py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95"
+                          style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
+                          onClick={() => setStep(step + 1)}
+                        >
+                          המשך
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="w-full max-w-2xl py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95"
+                        style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
+                        onClick={() => setStep(step + 1)}
+                      >
+                        המשך
+                      </button>
+                    )}
+                  </div>
+                )}
+                {/* Payment step */}
+                {step === grouped.length + 1 && (
+                  <div className="w-full">
+                    <div className="mb-6 text-center text-gray-700">שלב תשלום</div>
+                    {/* Contract preview snapshot styled as in contract-preview page, shrunk to 70% size, tags removed, with fade-out */}
+                    <div
+                      className="contract-container mb-8 flex justify-center items-center"
+                      style={{
+                        maxWidth: 900,
+                        width: '100%',
+                        minHeight: 320,
+                        padding: '8px 0',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        display: 'flex',
+                      }}
+                    >
+                      <div
+                        style={{
+                          transform: isMobile ? 'scale(0.7)' : 'scale(0.7)',
+                          transformOrigin: 'top center',
+                          width: isMobile ? '100vw' : '260mm',
+                          height: isMobile ? '260mm' : '190mm',
+                          pointerEvents: 'auto',
+                          boxShadow: '0 6px 32px rgba(0,0,0,0.10)',
+                          borderRadius: 6,
+                          overflow: 'hidden',
+                          background: '#fff',
+                          border: '2px solid var(--contract-border)',
+                          position: 'relative',
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          justifyContent: 'center',
+                          margin: isMobile ? '0 auto' : undefined,
+                        }}
+                      >
+                        <div className="page" style={{ height: 1000, width: '100%', overflow: 'hidden', position: 'relative', padding: '32px 32px 0 32px', boxShadow: 'none', border: 'none', background: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start' }}>
+                          <div className="contract-title text-center font-bold text-4xl underline mb-0 mt-2" style={{ fontFamily: 'var(--contract-font)', width: '100%' }}>
+                            הסכם שכירות למגורים
+                          </div>
+                          <div className="contract-subtitle text-center text-lg text-gray-800 mb-3 font-medium" style={{ fontFamily: 'var(--contract-font)', width: '100%' }}>
+                            (שכירות בלתי מוגנת)
+                          </div>
+                          <div className="contract-date-row text-center text-base text-gray-800 mb-3" style={{ fontFamily: 'var(--contract-font)', width: '100%' }}>
+                            שנעשה ונחתם ב_______, בתאריך _______.
+                          </div>
+                          <div className="contract-preview" style={{ fontFamily: 'var(--contract-font)', fontSize: '1.08rem', fontWeight: 500, lineHeight: 1.85, color: '#222', direction: 'rtl', whiteSpace: 'pre-wrap', width: '100%' }}>
+                            {/* Show only the first ~30 lines of the contract, with HTML tags removed */}
+                            {contract?.split('\n').slice(0, 30).map((line, idx) => {
+                              const plainLine = line.replace(/<[^>]+>/g, '');
+                              return plainLine.trim() && plainLine.trim() !== '⸻' ? (
+                                <div key={idx} style={{ marginBottom: '0.7em', width: '100%' }}>{plainLine}</div>
+                              ) : null;
+                            })}
+                          </div>
                         </div>
                       </div>
-                    ));
-                  } else {
-                    return [
-                      <div key={group.title} className="bg-white border border-[#38E18E] rounded-2xl shadow p-6 text-right" dir="rtl">
-                        <div className="font-bold text-lg mb-3 text-right" style={{ color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>{group.title}</div>
-                        <div className="flex flex-col gap-6 text-right" dir="rtl">
-                          {(group.innerGroups ? group.innerGroups.flatMap(g => g.ids) : group.questions.map(q => q.id)).map(qid => {
-                            const q = questions.find(qq => qq.id === qid);
-                            if (!q) return null;
-                            if (!require('../utils/visibilityLogic').isQuestionVisible(q, answers)) return null;
-                            let value;
-                            if (group.title === 'פרטי המשכיר' && Array.isArray(answers.landlords)) {
-                              value = answers.landlords[0]?.[qid];
-                            } else {
-                              value = answers[qid];
+                    </div>
+                    {/* Payment info outside the contract preview card */}
+                    <div style={{
+                      width: '100%',
+                      maxWidth: 600,
+                      margin: '0 auto 0 auto',
+                      background: '#F3FBF6',
+                      color: '#1A4D2C',
+                      borderRadius: 18,
+                      boxShadow: '0 1px 6px rgba(56,225,142,0.08)',
+                      fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
+                      fontWeight: 400,
+                      fontSize: isMobile ? 17 : 19,
+                      lineHeight: 1.8,
+                      textAlign: 'center',
+                      padding: isMobile ? '16px 10px 10px 10px' : '18px 18px 12px 18px',
+                      marginBottom: 18,
+                      position: 'relative',
+                      zIndex: 20,
+                    }}>
+                      כדי לצפות בכל החוזה – יש להשלים את התשלום.<br />
+                      <span style={{ color: '#38E18E', fontWeight: 600, fontSize: isMobile ? 20 : 22 }}>₪49</span>
+                      <span style={{ fontWeight: 400, fontSize: isMobile ? 15 : 17 }}> | תשלום חד־פעמי</span>
+                    </div>
+                    <div className="mb-4 text-center">
+                      <PayPalScriptProvider options={{
+                        clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || 'test',
+                        currency: 'ILS',
+                        intent: 'capture',
+                      }}>
+                        <PayPalButtons
+                          style={{ layout: 'vertical', color: 'gold', shape: 'rect', label: 'paypal' }}
+                          forceReRender={[]}
+                          createOrder={(data, actions) => {
+                            return actions.order.create({
+                              intent: 'CAPTURE',
+                              purchase_units: [
+                                {
+                                  amount: {
+                                    value: '49.00', // Fixed price of 49 ILS
+                                    currency_code: 'ILS',
+                                  },
+                                  description: 'תשלום עבור חוזה שכירות',
+                                },
+                              ],
+                            });
+                          }}
+                          onApprove={async (data, actions) => {
+                            if (actions.order) {
+                              await actions.order.capture();
+                              setStep(step + 1); // Move to preview step
                             }
-                            if (Array.isArray(value)) value = value.join(', ');
-                            const displayValue = (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) ? 'לא צוין' : value;
-                            return (
-                              <div key={q.id} className="flex flex-col items-end mb-2 text-right" dir="rtl">
-                                <span className="text-sm font-medium text-[#1A4D2C] text-right" style={{ fontFamily: 'Noto Sans Hebrew', textAlign: 'right' }}>{q.label}</span>
-                                <span className="text-base font-bold text-[#124E31] mt-1 text-right" style={{ fontFamily: 'Noto Sans Hebrew', textAlign: 'right' }}>{displayValue}</span>
-                              </div>
-                            );
-                          }).filter(x => x != null)}
-                        </div>
-                        <div className="flex justify-end mt-2">
+                          }}
+                          onError={(err) => {
+                            alert('שגיאה בתשלום: ' + err);
+                          }}
+                        />
+                      </PayPalScriptProvider>
+                    </div>
+                    {isMobile ? (
+                      <div className="mobile-sticky-bottom-bar">
+                        {step > 0 && (
                           <button
-                            type="button"
-                            className="text-xs text-blue-600 underline font-bold hover:text-blue-800 transition-colors"
-                            onClick={() => setStep(groupIdx)}
+                            className="w-full py-3 rounded-lg font-bold text-lg mt-2 bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
+                            style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
+                            onClick={() => setStep(step - 1)}
                           >
-                            ערוך
+                            הקודם
                           </button>
+                        )}
+                      </div>
+                    ) : (
+                      step > 0 && (
+                        <button
+                          className="w-full py-3 rounded-lg font-bold text-lg mt-2 bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
+                          style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
+                          onClick={() => setStep(step - 1)}
+                        >
+                          הקודם
+                        </button>
+                      )
+                    )}
+                  </div>
+                )}
+                {/* Preview step */}
+                {step === grouped.length + 2 && (
+                  <div className="w-full">
+                    {/* Confetti effect on final step */}
+                    {typeof window !== 'undefined' && contract && (
+                      <Confetti
+                        width={window.innerWidth}
+                        height={window.innerHeight}
+                        numberOfPieces={250}
+                        recycle={false}
+                      />
+                    )}
+                    <div className="mb-6 text-center text-gray-900">תצוגה מקדימה של ההסכם</div>
+                    {/* Contract preview snapshot styled as in contract-preview page, shrunk to 70% size, tags removed, with fade-out */}
+                    <div className="contract-container mb-8 flex justify-center items-center" style={{ maxWidth: 900, width: '100%', minHeight: 320, padding: '8px 0', justifyContent: 'center', alignItems: 'center', display: 'flex' }}>
+                      <div
+                        style={{
+                          transform: isMobile ? 'scale(0.7)' : 'scale(0.7)',
+                          transformOrigin: 'top center',
+                          width: isMobile ? '100vw' : '260mm',
+                          height: isMobile ? '260mm' : '190mm',
+                          pointerEvents: 'auto',
+                          boxShadow: '0 6px 32px rgba(0,0,0,0.10)',
+                          borderRadius: 6,
+                          overflow: 'hidden',
+                          background: '#fff',
+                          border: '2px solid var(--contract-border)',
+                          position: 'relative',
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          justifyContent: 'center',
+                          margin: isMobile ? '0 auto' : undefined,
+                        }}
+                      >
+                        <div className="page" style={{ height: 1000, width: '100%', overflow: 'hidden', position: 'relative', padding: '32px 32px 0 32px', boxShadow: 'none', border: 'none', background: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start' }}>
+                          <div className="contract-title text-center font-bold text-4xl underline mb-0 mt-2" style={{ fontFamily: 'var(--contract-font)', width: '100%' }}>
+                            הסכם שכירות למגורים
+                          </div>
+                          <div className="contract-subtitle text-center text-lg text-gray-800 mb-3 font-medium" style={{ fontFamily: 'var(--contract-font)', width: '100%' }}>
+                            (שכירות בלתי מוגנת)
+                          </div>
+                          <div className="contract-date-row text-center text-base text-gray-800 mb-3" style={{ fontFamily: 'var(--contract-font)', width: '100%' }}>
+                            שנעשה ונחתם ב_______, בתאריך _______.
+                          </div>
+                          <div className="contract-preview" style={{ fontFamily: 'var(--contract-font)', fontSize: '1.08rem', fontWeight: 500, lineHeight: 1.85, color: '#222', direction: 'rtl', whiteSpace: 'pre-wrap', width: '100%' }}>
+                            {/* Show only the first ~30 lines of the contract, with HTML tags removed */}
+                            {contract?.split('\n').slice(0, 30).map((line, idx) => {
+                              const plainLine = line.replace(/<[^>]+>/g, '');
+                              return plainLine.trim() && plainLine.trim() !== '⸻' ? (
+                                <div key={idx} style={{ marginBottom: '0.7em', width: '100%' }}>{plainLine}</div>
+                              ) : null;
+                            })}
+                          </div>
                         </div>
                       </div>
-                    ];
-                  }
-                }).filter(Boolean)}
+                    </div>
+                    {/* Preview and Download buttons */}
+                    <div className="flex flex-col md:flex-row gap-4 justify-center items-center mt-4">
+                      <button
+                        className="bg-[#38E18E] text-white font-bold px-6 py-3 rounded-lg shadow hover:bg-[#2bc77a] transition-colors text-lg"
+                        onClick={() => window.open('/contract-preview', '_blank')}
+                      >
+                        תצוגה מלאה של ההסכם
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-              {isMobile ? (
-                <div className="mobile-sticky-bottom-bar">
-                  <button
-                    type="button"
-                    className="w-full max-w-2xl py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95"
-                    style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
-                    onClick={() => setStep(step + 1)}
-                  >
-                    המשך
-                  </button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  className="w-full max-w-2xl py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95"
-                  style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
-                  onClick={() => setStep(step + 1)}
-                >
-                  המשך
-                </button>
-              )}
-            </div>
-          )}
-          {/* Payment step */}
-          {step === grouped.length + 1 && (
-            <div className="w-full">
-              <div className="mb-6 text-center text-gray-700">שלב תשלום</div>
-              <form className="space-y-4 mb-4">
-                <div>
-                  <label className="block mb-1 font-bold">מספר כרטיס</label>
-                  <input type="text" className="border rounded px-3 py-2 w-full text-right hover:border-green-400 focus:ring-2 focus:ring-[#38E18E] focus:border-[#38E18E] transition-colors" placeholder="1234 5678 9012 3456" />
-                </div>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <label className="block mb-1 font-bold">תוקף</label>
-                    <input type="text" className="border rounded px-3 py-2 w-full text-right hover:border-green-400 focus:ring-2 focus:ring-[#38E18E] focus:border-[#38E18E] transition-colors" placeholder="MM/YY" />
-                  </div>
-                  <div className="w-24">
-                    <label className="block mb-1 font-bold">CVV</label>
-                    <input type="text" className="border rounded px-3 py-2 w-full text-right hover:border-green-400 focus:ring-2 focus:ring-[#38E18E] focus:border-[#38E18E] transition-colors" placeholder="123" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block mb-1 font-bold">שם בעל הכרטיס</label>
-                  <input type="text" className="border rounded px-3 py-2 w-full text-right hover:border-green-400 focus:ring-2 focus:ring-[#38E18E] focus:border-[#38E18E] transition-colors" placeholder="שם מלא" />
-                </div>
-              </form>
-              {isMobile ? (
-                <div className="mobile-sticky-bottom-bar">
-                  <button
-                    className="w-full py-3 rounded-lg font-bold text-lg hover:bg-green-400 transition-colors"
-                    style={{ background: PRIMARY_GREEN, color: '#fff', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
-                    onClick={() => setStep(step + 1)}
-                  >
-                    המשך לתצוגה מקדימה
-                  </button>
-                  {step > 0 && (
-                    <button
-                      className="w-full py-3 rounded-lg font-bold text-lg mt-2 bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
-                      style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
-                      onClick={() => setStep(step - 1)}
-                    >
-                      הקודם
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <button
-                    className="w-full py-3 rounded-lg font-bold text-lg hover:bg-green-400 transition-colors"
-                    style={{ background: PRIMARY_GREEN, color: '#fff', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
-                    onClick={() => setStep(step + 1)}
-                  >
-                    המשך לתצוגה מקדימה
-                  </button>
-                  {step > 0 && (
-                    <button
-                      className="w-full py-3 rounded-lg font-bold text-lg mt-2 bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
-                      style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
-                      onClick={() => setStep(step - 1)}
-                    >
-                      הקודם
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-          {/* Preview step */}
-          {step === grouped.length + 2 && (
-            <div className="w-full">
-              {/* Confetti effect on final step */}
-              {typeof window !== 'undefined' && contract && (
-                <Confetti
-                  width={window.innerWidth}
-                  height={window.innerHeight}
-                  numberOfPieces={250}
-                  recycle={false}
-                />
-              )}
-              <div className="mb-6 text-center text-gray-900">תצוגה מקדימה של ההסכם</div>
-              {isMobile ? (
-                <div className="mobile-sticky-bottom-bar">
-                  <button
-                    className="py-2 px-6 rounded-lg font-bold text-lg hover:bg-green-400 transition-colors w-full"
-                    style={{ background: PRIMARY_GREEN, color: '#fff', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
-                    onClick={() => {
-                      if (contract && contract.trim() !== '') {
-                        localStorage.setItem('contractText', contract);
-                        // Save all tenants for preview
-                        const tenants = Array.isArray(answers.tenants) ? answers.tenants : [];
-                        if (tenants.length > 0) {
-                          localStorage.setItem('contractTenants', JSON.stringify(tenants.map(t => ({
-                            tenantName: t.tenantName || '',
-                            tenantIdNumber: t.tenantIdNumber || '',
-                            tenantCity: t.tenantCity || '',
-                            tenantPhone: t.tenantPhone || '',
-                            ...t
-                          }))));
-                        } else {
-                          localStorage.removeItem('contractTenants');
-                        }
-                        // Store FULL contract meta info for preview
-                        localStorage.setItem('contractMeta', JSON.stringify({
-                          ...answers,
-                          landlords: Array.isArray(answers.landlords) ? answers.landlords : [{}],
-                          tenants: Array.isArray(answers.tenants) ? (Array.isArray(answers.tenants) ? answers.tenants.map(t => ({
-                            tenantName: t.tenantName || '',
-                            tenantIdNumber: t.tenantIdNumber || '',
-                            tenantCity: t.tenantCity || '',
-                            tenantPhone: t.tenantPhone || '',
-                            ...t
-                          })) : [{}]) : [{}],
-                        }));
-                        window.open('/contract-preview', '_blank');
-                      } else {
-                        alert('לא ניתן להציג תצוגה מקדימה – יש למלא את כל השדות הנדרשים בטופס.');
-                      }
-                    }}
-                    disabled={!(contract && contract.trim() !== '')}
-                  >
-                    עמוד תצוגה ייעודי
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2 justify-center">
-                  <button
-                    className="py-2 px-6 rounded-lg font-bold text-lg hover:bg-green-400 transition-colors"
-                    style={{ background: PRIMARY_GREEN, color: '#fff', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
-                    onClick={() => {
-                      if (contract && contract.trim() !== '') {
-                        localStorage.setItem('contractText', contract);
-                        // Save all tenants for preview
-                        const tenants = Array.isArray(answers.tenants) ? answers.tenants : [];
-                        if (tenants.length > 0) {
-                          localStorage.setItem('contractTenants', JSON.stringify(tenants.map(t => ({
-                            tenantName: t.tenantName || '',
-                            tenantIdNumber: t.tenantIdNumber || '',
-                            tenantCity: t.tenantCity || '',
-                            tenantPhone: t.tenantPhone || '',
-                            ...t
-                          }))));
-                        } else {
-                          localStorage.removeItem('contractTenants');
-                        }
-                        // Store FULL contract meta info for preview
-                        localStorage.setItem('contractMeta', JSON.stringify({
-                          ...answers,
-                          landlords: Array.isArray(answers.landlords) ? answers.landlords : [{}],
-                          tenants: Array.isArray(answers.tenants) ? (Array.isArray(answers.tenants) ? answers.tenants.map(t => ({
-                            tenantName: t.tenantName || '',
-                            tenantIdNumber: t.tenantIdNumber || '',
-                            tenantCity: t.tenantCity || '',
-                            tenantPhone: t.tenantPhone || '',
-                            ...t
-                          })) : [{}]) : [{}],
-                        }));
-                        window.open('/contract-preview', '_blank');
-                      } else {
-                        alert('לא ניתן להציג תצוגה מקדימה – יש למלא את כל השדות הנדרשים בטופס.');
-                      }
-                    }}
-                    disabled={!(contract && contract.trim() !== '')}
-                  >
-                    עמוד תצוגה ייעודי
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </motion.div>
-      </AnimatePresence>
-    </main>
+            ) : null}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+    </div>
   );
 }

@@ -10,9 +10,10 @@
   { "id": "tenantPhone", "label": "מה מספר הטלפון של השוכר? ", "type": "text", "placeholder": "לדוגמה: 050-1234567" },
 
   { "id": "street", "label": "מה שם הרחוב שבו נמצאת הדירה שלך? ", "type": "text", "placeholder": "לדוגמה: אבן גבירול" },
-  { "id": "apartmentNumber", "label": "מה מספר הדירה שלך? ", "type": "text", "placeholder": "לדוגמה: 5" },
-  { "id": "floor", "label": "באיזו קומה נמצאת הדירה שלך? ", "type": "text", "placeholder": "לדוגמה: 3" },
-  { "id": "entrance", "label": "מהי הכניסה לדירה שלך? ", "type": "text", "placeholder": "לדוגמה: ב'" },
+  { "id": "buildingNumber", "label": "מה מספר הבניין שבו נמצאת הדירה שלך?", "type": "text", "placeholder": "לדוג׳: 12", "group": "property" },
+  { "id": "apartmentNumber", "label": "דירה", "type": "text", "placeholder": "לדוג׳: 5" },
+  { "id": "floor", "label": "קומה", "type": "text", "placeholder": "לדוג׳: 3" },
+  { "id": "entrance", "label": "כניסה", "type": "text", "placeholder": "לדוג׳: ב'" },
   { "id": "propertyCity", "label": "באיזו עיר נמצאת הדירה שלך? ", "type": "text", "placeholder": "לדוגמה: תל אביב" },
   { "id": "apartmentRooms", "label": "כמה חדרים יש בדירה שלך? ", "type": "text", "placeholder": "לדוגמה: 3" },
   { "id": "apartmentFeatures", "label": "מה תרצה לכלול בדירה? (מזגנים, רהיטים וכו') ", "type": "text", "placeholder": "לדוגמה: מזגן, רהיטים" },

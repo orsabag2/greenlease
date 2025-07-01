@@ -149,7 +149,7 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
 
         {/* Render first guarantor fields if they exist */}
         {guarantor1Fields.length > 0 && (
-          <div className="border-2 border-[#38E18E] rounded-xl p-4 mb-4 bg-[#F6FFF9] space-y-2">
+          <div className="border-2 border-[#38E18E] rounded-xl p-4 mb-4 bg-[#F6FFF9] space-y-2" style={{ maxWidth: isMobile ? '100%' : 500, width: '100%' }}>
             <div className="font-bold text-lg mb-4 text-right" style={{color: '#124E31'}}>
               ערב 1
             </div>
@@ -170,7 +170,7 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
 
         {/* Render second guarantor fields if they exist and guarantorsCount is 2 */}
         {guarantor2Fields.length > 0 && entry['guarantorsCount'] === '2' && (
-          <div className="border-2 border-[#38E18E] rounded-xl p-4 mb-4 bg-[#F6FFF9] space-y-2">
+          <div className="border-2 border-[#38E18E] rounded-xl p-4 mb-4 bg-[#F6FFF9] space-y-2" style={{ maxWidth: isMobile ? '100%' : 500, width: '100%' }}>
             <div className="font-bold text-lg mb-4 text-right" style={{color: '#124E31'}}>
               ערב 2
             </div>
@@ -199,6 +199,37 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Special layout for 'עיר ומיקום' group: apartmentNumber, floor, entrance in one row
+  if (currentGroup.title === 'עיר ומיקום' || currentGroup.title === 'עיר ומיקום') {
+    // Find the relevant questions
+    const cityQ = visibleQuestions.find(q => q.id === 'propertyCity');
+    const streetQ = visibleQuestions.find(q => q.id === 'street');
+    const buildingQ = visibleQuestions.find(q => q.id === 'buildingNumber');
+    const aptQ = visibleQuestions.find(q => q.id === 'apartmentNumber');
+    const floorQ = visibleQuestions.find(q => q.id === 'floor');
+    const entranceQ = visibleQuestions.find(q => q.id === 'entrance');
+    return (
+      <>
+        {cityQ && <QuestionField key={cityQ.id} question={cityQ} value={entry[cityQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(cityQ.id, val)} answers={answers} setAnswers={setAnswers} />}
+        {streetQ && <QuestionField key={streetQ.id} question={streetQ} value={entry[streetQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(streetQ.id, val)} answers={answers} setAnswers={setAnswers} />}
+        {buildingQ && <QuestionField key={buildingQ.id} question={buildingQ} value={entry[buildingQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(buildingQ.id, val)} answers={answers} setAnswers={setAnswers} />}
+        <div className="property-row-responsive">
+          {aptQ && <div style={{ flex: 1 }}><QuestionField key={aptQ.id} question={aptQ} value={entry[aptQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(aptQ.id, val)} answers={answers} setAnswers={setAnswers} /></div>}
+          {floorQ && <div style={{ flex: 1 }}><QuestionField key={floorQ.id} question={floorQ} value={entry[floorQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(floorQ.id, val)} answers={answers} setAnswers={setAnswers} /></div>}
+          {entranceQ && <div style={{ flex: 1 }}><QuestionField key={entranceQ.id} question={entranceQ} value={entry[entranceQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(entranceQ.id, val)} answers={answers} setAnswers={setAnswers} /></div>}
+        </div>
+        <div className={isMobile ? 'mobile-sticky-bottom-bar' : 'flex gap-2 mt-4'}>
+          {onBack && (
+            <button type="button" onClick={onBack} className="bg-gray-300 px-4 py-2 rounded w-full font-bold text-lg mt-0 transition-transform duration-150 hover:scale-105 active:scale-95" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', color: '#124E31' }}>הקודם</button>
+          )}
+          <button type="button" onClick={() => { scrollToTop(); onComplete && onComplete(); }} className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
+            המשך
+          </button>
+        </div>
+      </>
+    );
+  }
 
   if (isTenantMulti) {
     const tenants = Array.isArray(answers.tenants) ? answers.tenants : [{}];
@@ -283,7 +314,7 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
                 {onBack && (
                   <button type="button" onClick={onBack} className="bg-gray-300 px-4 py-2 rounded w-full font-bold text-lg mt-0 transition-transform duration-150 hover:scale-105 active:scale-95" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', color: '#124E31' }}>הקודם</button>
                 )}
-                <button type="button" onClick={onContinue} className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
+                <button type="button" onClick={() => { scrollToTop(); onContinue && onContinue(); }} className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
                   המשך
                 </button>
               </div>
@@ -292,7 +323,7 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
                 {onBack && (
                   <button type="button" onClick={onBack} className="bg-gray-300 px-4 py-2 rounded w-full font-bold text-lg mt-0 transition-transform duration-150 hover:scale-105 active:scale-95" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', color: '#124E31' }}>הקודם</button>
                 )}
-                <button type="button" onClick={onContinue} className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
+                <button type="button" onClick={() => { scrollToTop(); onContinue && onContinue(); }} className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
                   המשך
                 </button>
               </div>
@@ -378,6 +409,13 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
       )}
     </div>
   );
+};
+
+// Add scroll to top on next/continue
+const scrollToTop = () => {
+  if (typeof window !== 'undefined') {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 };
 
 export default FormRenderer; 

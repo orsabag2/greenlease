@@ -144,14 +144,19 @@ export default function contractMerge(template: string, data: MergeData): string
     return section + '\n\n⸻';
   });
 
+  // Defensive: If security_types does not include 'שטר חוב וערבים', treat guarantorsCount as '0'
+  const securityTypes = Array.isArray(data['security_types']) ? data['security_types'] : [];
+  const hasPromissoryNote = securityTypes.includes('שטר חוב וערבים');
+  const effectiveGuarantorsCount = hasPromissoryNote ? data['guarantorsCount'] : '0';
+
   // Custom logic for guarantorsSection
   processed = processed.replace(/{{guarantorsSection}}/g, () => {
-    if (data['guarantorsCount'] && data['guarantorsCount'] !== '0') {
+    if (hasPromissoryNote && effectiveGuarantorsCount && effectiveGuarantorsCount !== '0') {
       let section = 'נספח: כתב ערבות\n\n\n\n';
       section += 'אנו החתומים מטה מתחייבים בזאת כלפי המשכיר לכל התחייבויות השוכר לפי הסכם השכירות לעיל. אנו מאשרים כי קראנו את ההסכם, ובמיוחד את הסעיפים הנוגעים לבטחונות (סעיף 12), ומסכימים במפורש להיות ערבים לאותן התחייבויות.\n';
-      if (data['guarantorsCount'] === '1' || data['guarantorsCount'] === 1) {
+      if (effectiveGuarantorsCount === '1' || effectiveGuarantorsCount === 1) {
         section += `• ערב 1: שם: ${data['guarantor1Name'] || '______________'} | ת"ז: ${data['guarantor1Id'] || '______________'} | כתובת: ${data['guarantor1Address'] || '______________'} | טלפון: ${data['guarantor1Phone'] || '______________'}\n`;
-      } else if (data['guarantorsCount'] === '2' || data['guarantorsCount'] === 2) {
+      } else if (effectiveGuarantorsCount === '2' || effectiveGuarantorsCount === 2) {
         section += `• ערב 1: שם: ${data['guarantor1Name'] || '______________'} | ת"ז: ${data['guarantor1Id'] || '______________'} | כתובת: ${data['guarantor1Address'] || '______________'} | טלפון: ${data['guarantor1Phone'] || '______________'}\n`;
         section += `• ערב 2: שם: ${data['guarantor2Name'] || '______________'} | ת"ז: ${data['guarantor2Id'] || '______________'} | כתובת: ${data['guarantor2Address'] || '______________'} | טלפון: ${data['guarantor2Phone'] || '______________'}\n`;
       }
@@ -173,8 +178,6 @@ export default function contractMerge(template: string, data: MergeData): string
     }
 
     let section = '12. בטחונות\n\n12.1 טרם הכניסה למושכר, ימציא השוכר את הבטחונות הבאים:\n';
-    
-    const hasPromissoryNote = securityTypes.includes('שטר חוב וערבים');
     
     // Add promissory note and guarantors if selected
     if (hasPromissoryNote && data['guaranteeAmount']) {
@@ -398,14 +401,33 @@ export default function contractMerge(template: string, data: MergeData): string
   });
 
   // Join lines with proper spacing
-  return finalLines.join('\n\n');
+  processed = finalLines.join('\n\n');
+
+  // Replace the new section 1.1
+  processed = processed.replace(
+    /1\.1 המושכר הינו דירה ברחוב \{\{street\}\}(, מספר בניין \{\{buildingNumber\}\})?, מספר \{\{apartmentNumber\}\}, קומה \{\{floor\}\}, כניסה \{\{entrance\}\}, בעיר \{\{propertyCity\}\} \(להלן: "המושכר"\)\./g,
+    () => {
+      // Always add a space or comma between each part, even if missing
+      const parts = [];
+      if (data['street']) parts.push(data['street']);
+      if (data['buildingNumber']) parts.push('מספר בניין ' + data['buildingNumber']);
+      if (data['apartmentNumber']) parts.push('מספר דירה ' + data['apartmentNumber']);
+      if (data['floor']) parts.push('קומה ' + data['floor']);
+      if (data['entrance']) parts.push('כניסה ' + data['entrance']);
+      if (data['propertyCity']) parts.push('בעיר ' + data['propertyCity']);
+      const joined = parts.length ? parts.join(', ') : '-';
+      return `1.1 המושכר הינו דירה ברחוב ${joined} (להלן: "המושכר").`;
+    }
+  );
+
+  return processed;
 }
 
 export function generateSummarySection(data: MergeData): string {
   const summary = [
     'סיכום פרטי המושכר:',
     '',
-    `• כתובת: ${data.street ?? '-'} ${data.apartmentNumber ?? ''}, קומה ${data.floor ?? '-'}, כניסה ${data.entrance ?? '-'}, ${data.propertyCity ?? '-'}`,
+    `• כתובת: ${data.street ?? '-'}${data.buildingNumber ? ' ' + data.buildingNumber : ''}${data.apartmentNumber ? ', דירה ' + data.apartmentNumber : ''}${data.floor ? ', קומה ' + data.floor : ''}${data.entrance ? ', כניסה ' + data.entrance : ''}${data.propertyCity ? ', ' + data.propertyCity : ''}`,
     `• מספר חדרים: ${data.apartmentRooms ?? '-'}`,
     `• תכולת הדירה: ${data.apartmentFeatures ?? '-'}`,
   ];
