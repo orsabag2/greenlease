@@ -9,7 +9,7 @@ const GmailSignIn: React.FC = () => {
       const user = result.user;
       // For now, just log the user info
       console.log('Signed in user:', user);
-      alert(`Signed in as: ${user.displayName || user.email}`);
+      // Removed alert on successful login
     } catch (error) {
       console.error('Google sign-in error:', error);
       alert('Google sign-in failed.');

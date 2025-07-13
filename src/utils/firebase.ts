@@ -18,5 +18,5 @@ export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
-googleProvider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-googleProvider.addScope('https://www.googleapis.com/auth/gmail.send'); 
+googleProvider.addScope('openid');
+googleProvider.addScope('email'); 
