@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import puppeteer from 'puppeteer';
+import fetch from 'node-fetch';
 import nodemailer from 'nodemailer';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -15,30 +15,50 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Generate PDF with Puppeteer
-    const browser = await puppeteer.launch({
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-    const page = await browser.newPage();
-    const fullHtml = `
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <style>${css || ''}</style>
-        </head>
-        <body dir="rtl">
-          ${html}
-        </body>
-      </html>
+    // Google Fonts link for Frank Ruhl Libre
+    const fontLink = `<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700&display=swap" rel="stylesheet">`;
+    // Ensure font-family is set for contract-preview and .page
+    const fontCss = `
+      .contract-preview, .page, body {
+        font-family: 'Frank Ruhl Libre', 'Noto Sans Hebrew', Arial, sans-serif !important;
+      }
     `;
-    await page.setContent(fullHtml, { waitUntil: 'networkidle0' });
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      margin: { top: '2.5cm', bottom: '2.5cm', left: '1.5cm', right: '1.5cm' },
-      displayHeaderFooter: false,
-    });
-    await browser.close();
+    // Prepare HTML with optional CSS and font
+    let fullHtml = html;
+    let fullCss = fontCss + (css || '');
+    fullHtml = `<!DOCTYPE html><html><head>${fontLink}<style>${fullCss}</style></head><body>${html}</body></html>`;
+
+    // PDFShift options for A4 and margins
+    const pdfShiftOptions = {
+      source: fullHtml,
+      landscape: false, // Portrait A4
+      margin: {
+        top: '2.5cm',
+        bottom: '2.5cm',
+        left: '1.5cm',
+        right: '1.5cm',
+      },
+    };
+
+    let pdfBuffer;
+    try {
+      const response = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'sk_e0e70090e19433315fd54ce22045e16600e7bf2f',
+        },
+        body: JSON.stringify(pdfShiftOptions),
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error('PDFShift API error: ' + errorText);
+      }
+      pdfBuffer = Buffer.from(await response.arrayBuffer());
+    } catch (fetchError) {
+      console.error('Fetch to PDFShift failed:', fetchError);
+      throw new Error('PDF generation failed');
+    }
 
     // Send email with Nodemailer (using Gmail SMTP)
     const transporter = nodemailer.createTransport({

@@ -2,6 +2,8 @@
 import html2pdf from 'html2pdf.js';
 import React, { useEffect, useState } from 'react';
 import contractMerge from '@/utils/contractMerge';
+// REMOVE: import { PDFDownloadLink } from '@react-pdf/renderer';
+// REMOVE: import ContractPdfDocument from './ContractPdfDocument';
 
 // Extend the Window interface to include html2pdf
 declare global {
@@ -241,7 +243,10 @@ ${signatureLines}`;
                 setDownloading(true);
                 try {
                   const contractNode = document.querySelector('.contract-preview');
-                  if (!contractNode) return;
+                  if (!contractNode) {
+                    alert('לא נמצא תוכן החוזה להורדה');
+                    return;
+                  }
                   let css = '';
                   for (const sheet of Array.from(document.styleSheets)) {
                     try {
@@ -369,15 +374,19 @@ ${signatureLines}`;
         <div className="print-spacer" style={{ height: 72 }} />
         
         {/* Contract Content */}
-        <div className="contract-preview max-w-4xl mx-auto w-full px-8 whitespace-pre-wrap" style={{ lineHeight: 'initial' }}>
+        <div className="contract-preview max-w-4xl mx-auto w-full px-8 whitespace-pre-wrap"
+          style={{ lineHeight: 'initial', direction: 'rtl', color: '#111', fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
           {/* Contract Title and Header */}
-          <div className="contract-title text-center font-bold text-4xl underline mb-0 mt-10" style={{ fontFamily: 'Frank Ruhl Libre, Noto Sans Hebrew, Arial, sans-serif', fontWeight: 700, fontSize: '2.25rem', textDecoration: 'underline', marginBottom: 0, marginTop: '2.5rem', letterSpacing: '0.01em', color: '#111', lineHeight: 1.1 }}>
+          <div className="contract-title text-center font-bold text-4xl underline mb-0 mt-10"
+            style={{ fontFamily: 'Frank Ruhl Libre, Noto Sans Hebrew, Arial, sans-serif', fontWeight: 700, fontSize: '2.25rem', textDecoration: 'underline', marginBottom: 0, marginTop: '2.5rem', letterSpacing: '0.01em', color: '#111', lineHeight: 1.1, direction: 'rtl' }}>
             הסכם שכירות למגורים
           </div>
-          <div className="contract-subtitle text-center text-lg text-gray-800 mb-3 font-medium" style={{ fontFamily: 'Frank Ruhl Libre, Noto Sans Hebrew, Arial, sans-serif', fontWeight: 600, fontSize: '1.18rem', color: '#111', marginBottom: 18, marginTop: 0, letterSpacing: '0.01em', lineHeight: 1.2 }}>
+          <div className="contract-subtitle text-center text-lg font-medium mb-3"
+            style={{ fontFamily: 'Frank Ruhl Libre, Noto Sans Hebrew, Arial, sans-serif', fontWeight: 600, fontSize: '1.18rem', color: '#111', marginBottom: 18, marginTop: 0, letterSpacing: '0.01em', lineHeight: 1.2, direction: 'rtl' }}>
             (שכירות בלתי מוגנת)
           </div>
-          <div className="contract-date-row text-center text-base text-gray-800 mb-3" style={{ fontFamily: 'Frank Ruhl Libre, Noto Sans Hebrew, Arial, sans-serif', fontWeight: 400, fontSize: '1.05rem', color: '#222', marginBottom: 12, marginTop: 0, letterSpacing: '0.01em', lineHeight: 1.2 }}>
+          <div className="contract-date-row text-center text-base mb-3"
+            style={{ fontFamily: 'Frank Ruhl Libre, Noto Sans Hebrew, Arial, sans-serif', fontWeight: 400, fontSize: '1.05rem', color: '#111', marginBottom: 12, marginTop: 0, letterSpacing: '0.01em', lineHeight: 1.2, direction: 'rtl' }}>
             שנעשה ונחתם ב{meta?.includeAgreementDetails ? (meta?.agreementCity || '_______') : '_______'}, בתאריך {meta?.includeAgreementDetails ? formatDate(meta?.agreementDate) : '_______'}.
           </div>
           <div style={{ lineHeight: 1.4 }}>
@@ -505,7 +514,7 @@ ${signatureLines}`;
                   <div 
                     key={index} 
                     className="contract-party-section"
-                    style={{ marginBottom: '1em' }}
+                    style={{ marginBottom: '1em', color: '#111', direction: 'rtl' }}
                     dangerouslySetInnerHTML={{ __html: processedLine }}
                   />
                 );
@@ -517,6 +526,7 @@ ${signatureLines}`;
                   <div 
                     key={index}
                     className="text-center font-bold my-4 text-xl"
+                    style={{ color: '#111', direction: 'rtl' }}
                   >
                     {line}
                   </div>
@@ -528,7 +538,7 @@ ${signatureLines}`;
                 <div 
                   key={index} 
                   className={isMainSection ? 'main-section' : ''} 
-                  style={{ marginBottom: '1em' }}
+                  style={{ marginBottom: '1em', color: '#111', direction: 'rtl' }}
                   {...(sectionNumber ? { 'data-section': sectionNumber } : {})}
                   dangerouslySetInnerHTML={{ __html: line }}
                 />
