@@ -13,18 +13,26 @@ const SignInPage: React.FC = () => {
       return;
     }
 
+    console.log('=== GOOGLE SIGN-IN DEBUG ===');
     console.log('Starting Google sign-in...');
     console.log('Current domain:', window.location.hostname);
+    console.log('Current URL:', window.location.href);
     console.log('Firebase auth domain:', auth.config.authDomain);
+    console.log('Google provider:', googleProvider);
+    console.log('Terms accepted:', termsAccepted);
+    console.log('Disclaimer accepted:', disclaimerAccepted);
 
     try {
+      console.log('Calling signInWithPopup...');
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
+      console.log('✅ Sign-in successful!');
       console.log('Signed in user:', user);
     } catch (error: any) {
-      console.error('Google sign-in error:', error);
+      console.error('❌ Google sign-in error:', error);
       console.error('Error code:', error.code);
       console.error('Error message:', error.message);
+      console.error('Full error object:', error);
       
       if (error.code === 'auth/popup-closed-by-user') {
         alert('החלון נסגר. אנא נסה שוב.');
