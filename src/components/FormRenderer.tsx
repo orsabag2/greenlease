@@ -26,15 +26,17 @@ interface Props {
   onContinue?: () => void;
   isLastTenant?: boolean;
   viewOnly?: boolean;
+  mobileMenuOpen?: boolean;
 }
 
-const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete, onBack, tenantIndex, showContinueButton, onContinue, isLastTenant, viewOnly }) => {
+const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete, onBack, tenantIndex, showContinueButton, onContinue, isLastTenant, viewOnly, mobileMenuOpen }) => {
   const currentGroup = groups[0];
   if (!currentGroup) {
     return null;
   }
   const isTenantMulti = currentGroup.title === 'פרטי השוכר';
   const isLandlord = currentGroup.title === 'פרטי המשכיר';
+  const isPropertyDetails = currentGroup.title === 'פרטי הנכס';
   const multiKey = isTenantMulti ? 'tenants' : isLandlord ? 'landlords' : undefined;
   const multiAnswers = multiKey && typeof multiKey === 'string' && Array.isArray(answers[multiKey]) ? (answers[multiKey] as Record<string, unknown>[]) : [{}];
   
@@ -149,8 +151,8 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
 
         {/* Render first guarantor fields if they exist */}
         {guarantor1Fields.length > 0 && (
-          <div className="border-2 border-[#38E18E] rounded-xl p-4 mb-4 bg-[#F6FFF9] space-y-2" style={{ maxWidth: isMobile ? '100%' : 500, width: '100%' }}>
-            <div className="font-bold text-lg mb-4 text-right" style={{color: '#124E31'}}>
+          <div className="border-2 border-[#38E18E] rounded-xl p-4 mb-4 bg-[#F6FFF9] space-y-2" style={{ maxWidth: isMobile ? '100%' : 500, width: '100%', padding: isMobile ? 16 : undefined }}>
+            <div className="font-bold text-lg mb-4 text-right" style={{color: '#281D57'}}>
               ערב 1
             </div>
             {guarantor1Fields.map(q => (
@@ -170,8 +172,8 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
 
         {/* Render second guarantor fields if they exist and guarantorsCount is 2 */}
         {guarantor2Fields.length > 0 && entry['guarantorsCount'] === '2' && (
-          <div className="border-2 border-[#38E18E] rounded-xl p-4 mb-4 bg-[#F6FFF9] space-y-2" style={{ maxWidth: isMobile ? '100%' : 500, width: '100%' }}>
-            <div className="font-bold text-lg mb-4 text-right" style={{color: '#124E31'}}>
+          <div className="border-2 border-[#38E18E] rounded-xl p-4 mb-4 bg-[#F6FFF9] space-y-2" style={{ maxWidth: isMobile ? '100%' : 500, width: '100%', padding: isMobile ? 16 : undefined }}>
+            <div className="font-bold text-lg mb-4 text-right" style={{color: '#281D57'}}>
               ערב 2
             </div>
             {guarantor2Fields.map(q => (
@@ -210,31 +212,57 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
     const floorQ = visibleQuestions.find(q => q.id === 'floor');
     const entranceQ = visibleQuestions.find(q => q.id === 'entrance');
     return (
-      <>
-        {cityQ && <QuestionField key={cityQ.id} question={cityQ} value={entry[cityQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(cityQ.id, val)} answers={answers} setAnswers={setAnswers} />}
-        {streetQ && <QuestionField key={streetQ.id} question={streetQ} value={entry[streetQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(streetQ.id, val)} answers={answers} setAnswers={setAnswers} />}
-        {buildingQ && <QuestionField key={buildingQ.id} question={buildingQ} value={entry[buildingQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(buildingQ.id, val)} answers={answers} setAnswers={setAnswers} />}
-        <div className="property-row-responsive">
-          {aptQ && <div style={{ flex: 1 }}><QuestionField key={aptQ.id} question={aptQ} value={entry[aptQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(aptQ.id, val)} answers={answers} setAnswers={setAnswers} /></div>}
-          {floorQ && <div style={{ flex: 1 }}><QuestionField key={floorQ.id} question={floorQ} value={entry[floorQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(floorQ.id, val)} answers={answers} setAnswers={setAnswers} /></div>}
-          {entranceQ && <div style={{ flex: 1 }}><QuestionField key={entranceQ.id} question={entranceQ} value={entry[entranceQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(entranceQ.id, val)} answers={answers} setAnswers={setAnswers} /></div>}
+      <div style={{ 
+        fontFamily: 'Rubik, Arial, sans-serif', 
+        padding: isMobile ? 16 : 24, 
+        borderRadius: 8, 
+        background: '#fff',
+        minHeight: isMobile ? 'auto' : 'auto',
+        height: isMobile ? 'auto' : 'auto',
+        display: isMobile ? 'block' : 'block',
+        flexDirection: isMobile ? 'column' : 'row',
+        maxWidth: isMobile ? '100vw' : '600px',
+        width: isMobile ? '100vw' : '100%'
+      }} className={isMobile ? 'mobile-bottom-padding mobile-content-container mobile-step-content' : ''}>
+        <div style={{ 
+          flex: isMobile ? 'none' : 1, 
+          display: isMobile ? 'block' : 'flex', 
+          flexDirection: isMobile ? 'column' : 'column', 
+          width: isMobile ? '100vw' : '100%', 
+          maxWidth: isMobile ? '100vw' : '100%'
+        }}>
+          {cityQ && <QuestionField key={cityQ.id} question={cityQ} value={entry[cityQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(cityQ.id, val)} answers={answers} setAnswers={setAnswers} />}
+          {streetQ && <QuestionField key={streetQ.id} question={streetQ} value={entry[streetQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(streetQ.id, val)} answers={answers} setAnswers={setAnswers} />}
+          {buildingQ && <QuestionField key={buildingQ.id} question={buildingQ} value={entry[buildingQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(buildingQ.id, val)} answers={answers} setAnswers={setAnswers} />}
+          <div className="property-row-responsive">
+            {aptQ && <div style={{ flex: 1 }}><QuestionField key={aptQ.id} question={aptQ} value={entry[aptQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(aptQ.id, val)} answers={answers} setAnswers={setAnswers} /></div>}
+            {floorQ && <div style={{ flex: 1 }}><QuestionField key={floorQ.id} question={floorQ} value={entry[floorQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(floorQ.id, val)} answers={answers} setAnswers={setAnswers} /></div>}
+            {entranceQ && <div style={{ flex: 1 }}><QuestionField key={entranceQ.id} question={entranceQ} value={entry[entranceQ.id] as string | number | string[] | null | undefined} onChange={val => onChange(entranceQ.id, val)} answers={answers} setAnswers={setAnswers} /></div>}
+          </div>
+          <div className="flex gap-2 mt-4">
+            {onBack && (
+              <button type="button" onClick={onBack} className="bg-gray-300 px-4 py-2 rounded w-full font-bold text-lg mt-0 transition-transform duration-150 hover:scale-105 active:scale-95" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', color: '#281D57' }}>הקודם</button>
+            )}
+            <button type="button" onClick={() => { onComplete && onComplete(); }} className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#281D57', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
+              המשך
+            </button>
+          </div>
         </div>
-        <div className={isMobile ? 'mobile-sticky-bottom-bar' : 'flex gap-2 mt-4'}>
-          {onBack && (
-            <button type="button" onClick={onBack} className="bg-gray-300 px-4 py-2 rounded w-full font-bold text-lg mt-0 transition-transform duration-150 hover:scale-105 active:scale-95" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', color: '#124E31' }}>הקודם</button>
-          )}
-          <button type="button" onClick={() => { scrollToTop(); onComplete && onComplete(); }} className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
-            המשך
-          </button>
-        </div>
-      </>
+      </div>
     );
   }
 
   if (isTenantMulti) {
     const tenants = Array.isArray(answers.tenants) ? answers.tenants : [{}];
     return (
-      <div style={{ fontFamily: 'Rubik, Arial, sans-serif', padding: 24, borderRadius: 8, background: '#fff' }} className={isMobile ? 'mobile-bottom-padding' : ''}>
+      <div style={{ 
+        fontFamily: 'Rubik, Arial, sans-serif', 
+        padding: isMobile ? 16 : 24, 
+        borderRadius: 8, 
+        background: '#fff',
+        maxWidth: isMobile ? '100vw' : '600px',
+        width: isMobile ? '100vw' : '100%'
+      }} className={isMobile ? 'mobile-bottom-padding' : ''}>
         {tenants.map((tenant, idx) => (
           <div
             key={idx}
@@ -246,7 +274,7 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
               padding: isMobile ? 16 : 24,
             }}
           >
-            <div className="font-bold text-lg mb-4 text-right" style={{color: viewOnly ? '#4B5563' : '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif'}}>
+            <div className="font-bold text-lg mb-4 text-right" style={{color: viewOnly ? '#4B5563' : '#281D57', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif'}}>
               שוכר {idx + 1}
             </div>
             {getVisibleQuestions(tenant).map((q) => (
@@ -298,7 +326,7 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
           <>
             <button
               type="button"
-              className="w-full py-2 mb-4 rounded-lg font-medium text-base border border-[#38E18E] text-[#124E31] hover:bg-[#F6FFF9] transition-colors"
+              className="w-full py-2 mb-4 rounded-lg font-medium text-base border border-[#38E18E] text-[#281D57] hover:bg-[#F6FFF9] transition-colors"
               style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
               onClick={() => {
                 setAnswers(prev => ({
@@ -309,25 +337,14 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
             >
               + הוסף שוכר
             </button>
-            {isMobile ? (
-              <div className="mobile-sticky-bottom-bar">
-                {onBack && (
-                  <button type="button" onClick={onBack} className="bg-gray-300 px-4 py-2 rounded w-full font-bold text-lg mt-0 transition-transform duration-150 hover:scale-105 active:scale-95" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', color: '#124E31' }}>הקודם</button>
-                )}
-                <button type="button" onClick={() => { scrollToTop(); onContinue && onContinue(); }} className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
-                  המשך
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                {onBack && (
-                  <button type="button" onClick={onBack} className="bg-gray-300 px-4 py-2 rounded w-full font-bold text-lg mt-0 transition-transform duration-150 hover:scale-105 active:scale-95" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', color: '#124E31' }}>הקודם</button>
-                )}
-                <button type="button" onClick={() => { scrollToTop(); onContinue && onContinue(); }} className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
-                  המשך
-                </button>
-              </div>
-            )}
+            <div className="flex gap-2">
+              {onBack && (
+                <button type="button" onClick={onBack} className="bg-gray-300 px-4 py-2 rounded w-full font-bold text-lg mt-0 transition-transform duration-150 hover:scale-105 active:scale-95" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', color: '#281D57' }}>הקודם</button>
+              )}
+              <button type="button" onClick={() => { onContinue && onContinue(); }} className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#281D57', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
+                המשך
+              </button>
+            </div>
           </>
         )}
       </div>
@@ -336,7 +353,14 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
 
   if (isLandlord) {
     return (
-      <div style={{ fontFamily: 'Rubik, Arial, sans-serif', padding: 24, borderRadius: 8, background: '#fff' }} className={isMobile ? 'mobile-bottom-padding' : ''}>
+      <div style={{ 
+        fontFamily: 'Rubik, Arial, sans-serif', 
+        padding: isMobile ? 16 : 24, 
+        borderRadius: 8, 
+        background: '#fff',
+        maxWidth: isMobile ? '100vw' : '600px',
+        width: isMobile ? '100vw' : '100%'
+      }} className={isMobile ? 'mobile-bottom-padding' : ''}>
         {getVisibleQuestions(entry).map((q) => (
           <div key={q.id} style={{ marginBottom: 20 }}>
             <QuestionField
@@ -349,73 +373,80 @@ const FormRenderer: React.FC<Props> = ({ groups, answers, setAnswers, onComplete
             />
           </div>
         ))}
+        <div className="flex gap-2 mt-4">
+          <button
+            type="button"
+            className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95"
+            style={{ background: '#38E18E', color: '#281D57', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', textAlign: 'center' }}
+            onClick={() => { onComplete && onComplete(); }}
+          >
+            המשך
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ fontFamily: 'Rubik, Arial, sans-serif', padding: 24, borderRadius: 8, background: '#fff' }} className={isMobile ? 'mobile-bottom-padding' : ''}>
-      {isTenantMulti && typeof tenantIndex === 'number' ? (
-        <div className="border-2 border-[#38E18E] rounded-xl p-4 mb-4 bg-[#F6FFF9]">
-          <div className="font-bold text-lg mb-4 text-right" style={{color: '#124E31', fontFamily: 'Rubik, Arial, sans-serif'}}>
-            שוכר {tenantIndex + 1}
-          </div>
-          <form className="space-y-2" dir="rtl" onSubmit={e => { e.preventDefault(); if (onComplete) onComplete(); }} style={{ fontFamily: 'Rubik, Arial, sans-serif' }}>
-            {renderQuestions(visibleQuestions)}
-            {isMobile ? (
-              <div className="mobile-sticky-bottom-bar">
-                {onBack && (
-                  <button type="button" onClick={onBack} className="bg-gray-300 px-4 py-2 rounded w-full font-bold text-lg mt-0 transition-transform duration-150 hover:scale-105 active:scale-95" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', color: '#124E31' }}>הקודם</button>
-                )}
-                <button type="submit" className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
-                  המשך
-                </button>
-              </div>
-            ) : (
+          <div style={{ 
+        fontFamily: 'Rubik, Arial, sans-serif', 
+        padding: isMobile ? 16 : 24, 
+        borderRadius: 8, 
+        background: '#fff',
+        minHeight: isMobile ? 'auto' : 'auto',
+        height: isMobile ? 'auto' : 'auto',
+        display: isMobile ? 'block' : 'block',
+        flexDirection: isMobile ? 'column' : 'row',
+        maxWidth: isMobile ? '100vw' : '600px',
+        width: isMobile ? '100vw' : '100%'
+      }} className={isMobile ? 'mobile-bottom-padding mobile-content-container mobile-step-content' : ''}>
+        <div style={{ 
+          flex: isMobile ? 'none' : 1, 
+          display: isMobile ? 'block' : 'flex', 
+          flexDirection: isMobile ? 'column' : 'column', 
+          width: isMobile ? '100vw' : '100%', 
+          maxWidth: isMobile ? '100vw' : '100%'
+        }}>
+        {isTenantMulti && typeof tenantIndex === 'number' ? (
+          <div className="border-2 border-[#38E18E] rounded-xl p-4 mb-4 bg-[#F6FFF9]">
+            <div className="font-bold text-lg mb-4 text-right" style={{color: '#281D57', fontFamily: 'Rubik, Arial, sans-serif'}}>
+              שוכר {tenantIndex + 1}
+            </div>
+            <form className="space-y-2" dir="rtl" onSubmit={e => { e.preventDefault(); if (onComplete) onComplete(); }} style={{ fontFamily: 'Rubik, Arial, sans-serif' }}>
+              {renderQuestions(visibleQuestions)}
               <div className="flex gap-2 mt-4">
                 {onBack && (
-                  <button type="button" onClick={onBack} className="bg-gray-300 px-4 py-2 rounded w-full font-bold text-lg mt-0 transition-transform duration-150 hover:scale-105 active:scale-95" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', color: '#124E31' }}>הקודם</button>
+                  <button type="button" onClick={onBack} className="bg-gray-300 px-4 py-2 rounded w-full font-bold text-lg mt-0 transition-transform duration-150 hover:scale-105 active:scale-95" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', color: '#281D57' }}>הקודם</button>
                 )}
-                <button type="submit" className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
+                <button type="submit" className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#281D57', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
                   המשך
                 </button>
               </div>
-            )}
-          </form>
-        </div>
-      ) : (
-        <form className="space-y-2" dir="rtl" onSubmit={e => { e.preventDefault(); if (onComplete) onComplete(); }} style={{ fontFamily: 'Rubik, Arial, sans-serif' }}>
-          {renderQuestions(visibleQuestions)}
-          {isMobile ? (
-            <div className="mobile-sticky-bottom-bar">
-              {onBack && (
-                <button type="button" onClick={onBack} className="bg-gray-300 px-4 py-2 rounded w-full font-bold text-lg mt-0 transition-transform duration-150 hover:scale-105 active:scale-95" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', color: '#124E31' }}>הקודם</button>
-              )}
-              <button type="submit" className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
-                המשך
-              </button>
-            </div>
-          ) : (
+            </form>
+          </div>
+        ) : (
+          <form className="space-y-2" dir="rtl" onSubmit={e => { e.preventDefault(); if (onComplete) onComplete(); }} style={{ fontFamily: 'Rubik, Arial, sans-serif' }}>
+            {renderQuestions(visibleQuestions)}
             <div className="flex gap-2 mt-4">
               {onBack && (
-                <button type="button" onClick={onBack} className="bg-gray-300 px-4 py-2 rounded w-full font-bold text-lg mt-0 transition-transform duration-150 hover:scale-105 active:scale-95" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', color: '#124E31' }}>הקודם</button>
+                <button type="button" onClick={onBack} className="bg-gray-300 px-4 py-2 rounded w-full font-bold text-lg mt-0 transition-transform duration-150 hover:scale-105 active:scale-95" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', color: '#281D57' }}>הקודם</button>
               )}
-              <button type="submit" className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#124E31', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
+              <button type="submit" className="w-full py-3 rounded-lg font-bold text-lg transition-transform duration-150 hover:scale-105 active:scale-95" style={{ background: '#38E18E', color: '#281D57', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
                 המשך
               </button>
             </div>
-          )}
-        </form>
-      )}
+          </form>
+        )}
+      </div>
     </div>
   );
 };
 
-// Add scroll to top on next/continue
-const scrollToTop = () => {
-  if (typeof window !== 'undefined') {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-};
+// Scroll to top function removed to prevent jumping
+// const scrollToTop = () => {
+//   if (typeof window !== 'undefined') {
+//     window.scrollTo({ top: 0, behavior: 'smooth' });
+//   }
+// };
 
 export default FormRenderer; 

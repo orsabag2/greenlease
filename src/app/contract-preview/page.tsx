@@ -6,6 +6,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: 'הסכם שכירות למגורים',
     description: 'תצוגה מקדימה של הסכם שכירות',
+    icons: {
+      icon: '/contract-favicon.svg',
+    },
   };
 }
 

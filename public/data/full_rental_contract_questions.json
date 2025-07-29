@@ -22,6 +22,8 @@
   { "id": "parkingNumber", "label": "מהם מספרי החניה שתרצה לציין? (אם יש כמה, תכתוב בפסיקים) ", "type": "text", "visibleIf": { "hasParking": "כן" }, "placeholder": "לדוגמה: 12, 14" },
   { "id": "hasStorage", "label": "האם יש מחסן בדירה שלך? ", "type": "select", "options": ["כן", "לא"] },
   { "id": "storageNumber", "label": "מה מספר המחסן שתרצה לציין? ", "type": "text", "visibleIf": { "hasStorage": "כן" }, "placeholder": "לדוגמה: 3" },
+  { "id": "hasGarden", "label": "האם יש גינה בדירה שלך? ", "type": "select", "options": ["כן", "לא"] },
+  { "id": "gardenMaintenance", "label": "האם תרצה שהשוכר יתחייב לטפל ולתחזק את הגינה הצמודה למושכר במהלך תקופת השכירות?", "type": "select", "options": ["כן, ברצוני שהשוכר יהיה אחראי על תחזוקת הגינה", "לא, איני מעוניין להטיל על השוכר אחריות על תחזוקת הגינה"], "visibleIf": { "hasGarden": "כן" } },
 
   { "id": "monthlyRent", "label": "כמה אתה גובה דמי שכירות חודשיים? ", "type": "text", "placeholder": "לדוגמה: 4,500" },
   { "id": "paymentDay", "label": "באיזה יום בחודש יתבצע התשלום?", "type": "text", "placeholder": "לדוגמה: 1" },
@@ -33,8 +35,14 @@
   { "id": "extensionNoticeDays", "label": "כמה ימים מראש תרצה לקבל הודעה על הארכה? ", "type": "text", "visibleIf": { "hasExtensionOption": "כן" }, "placeholder": "לדוגמה: 30" },
   { "id": "extensionRent", "label": "מה יהיו דמי השכירות לתקופת הארכה השכירות?", "type": "text", "visibleIf": { "hasExtensionOption": "כן" }, "placeholder": "לדוגמה: 5,000" },
   { "id": "allowEarlyExit", "label": "האם תרצה לאפשר לשוכר לצאת לפני הזמן? ", "type": "select", "options": ["כן", "לא"] },
-  { "id": "earlyExitCompensation", "label": "מהו סכום הפיצוי בעיניך במקרה של יציאה מוקדמת? ", "type": "text", "visibleIf": { "allowEarlyExit": "כן" }, "placeholder": "לדוגמה: 4,500" },
-  { "id": "earlyExitCustomCompensation", "label": "האם תרצה לציין פיצוי אחר ליציאה מוקדמת? ", "type": "text", "visibleIf": { "allowEarlyExit": "כן" }, "placeholder": "לדוגמה: פיצוי לפי ימים שנותרו" },
+  { "id": "earlyExitCompensationType", "label": "מהו הפיצוי במקרה של יציאה מוקדמת? ", "type": "select", "options": ["2 חודשי שכירות או מציאת שוכר חלופי (מומלץ)", "אחר"], "visibleIf": { "allowEarlyExit": "כן" } },
+  { "id": "earlyExitCompensation", "label": "מהו סכום הפיצוי בעיניך במקרה של יציאה מוקדמת? ", "type": "text", "visibleIf": { "allowEarlyExit": "כן", "earlyExitCompensationType": "אחר" }, "placeholder": "לדוגמה: 4,500" },
+
+  { "id": "lateInterestType", "label": "מה הריבית במקרה של איחור בתשלום? ", "type": "select", "options": ["לא לגבות ריבית בכלל", "0.03% ליום (סטנדרטי)", "סכום קבוע"] },
+  { "id": "lateInterestFixedAmount", "label": "מהו הסכום הקבוע ליום במקרה של איחור בתשלום? ", "type": "text", "visibleIf": { "lateInterestType": "סכום קבוע" }, "placeholder": "לדוגמה: 50" },
+
+  { "id": "evacuationPenaltyType", "label": "מה הפיצוי במקרה של איחור בפינוי הדירה? ", "type": "select", "options": ["לא לגבות דמי שימוש בכלל", "לגבות 2% מדמי השכירות היומיים", "לגבות 5% מדמי השכירות היומיים", "לגבות סכום קבוע ליום"] },
+  { "id": "evacuationPenaltyFixedAmount", "label": "מהו הסכום הקבוע ליום במקרה של איחור בפינוי? ", "type": "text", "visibleIf": { "evacuationPenaltyType": "לגבות סכום קבוע ליום" }, "placeholder": "לדוגמה: 200" },
 
   { "id": "allowPets", "label": "האם תרצה לאפשר לשוכר להביא חיות מחמד? ", "type": "select", "options": ["כן", "לא"] },
   { "id": "allowSublet", "label": "האם תרצה לאפשר לשוכר להשכיר לאחרים או לשתף את הדירה? ", "type": "select", "options": ["כן", "לא"] },
@@ -79,7 +87,7 @@
   { "id": "agreementCity", "label": "באיזו עיר תרצה לציין שנחתם ההסכם? ", "type": "text", "placeholder": "לדוגמה: תל אביב", "visibleIf": { "includeAgreementDetails": "כן" } },
 
   { "id": "tenant_utilities", "label": "אילו תשלומים יחולו על השוכר?", "type": "select", "options": ["ארנונה", "מים", "חשמל", "גז", "ועד בית", "דמי ניהול"], "helperText": "סמן את כל התשלומים שהשוכר יהיה אחראי לשלם.", "multiple": true, "variant": "greenbox" },
-  { "id": "maintenance_responsibility", "label": "מה אתה מוכן לקחת על עצמך כמשכיר במקרה של תקלה?", "type": "select", "options": ["צנרת (מים, ביוב)", "חשמל", "מזגן", "דוד חימום", "רטיבות בקירות", "אחר"], "helperText": "סמן את כל התחומים שאתה מוכן לקחת על עצמך.", "multiple": true, "variant": "greenbox" },
+  { "id": "maintenance_responsibility", "label": "מה אתה מוכן לקחת על עצמך כמשכיר במקרה של תקלה?", "type": "select", "options": ["צנרת (מים, ביוב)", "חשמל", "מזגן", "דוד חימום", "רטיבות בקירות", "תקלות באיטום חלונות/גג", "מפגעי בטיחות לדוג' – מעקה רופף, שקע חשוף"], "helperText": "סמן את כל התחומים שאתה מוכן לקחת על עצמך.", "multiple": true, "variant": "greenbox" },
   { "id": "allow_tenant_fix", "label": "לא תיקנת תקלה תוך 14 ימים – לאפשר לשוכר לתקן ולקבל החזר?", "type": "select", "options": ["כן, אם שלח לי הודעה מראש, הצעת מחיר סבירה ולא התנגדתי תוך 7 ימים", "לא, רק המשכיר יתקן"], "variant": "dropdown" },
   { "id": "tenant_fixes", "label": "מה השוכר צריך לתקן בעצמו?", "type": "select", "options": ["דברים קטנים (נורות, מסננים, תיקון קל)", "כל דבר שלא נחשב תשתית"], "variant": "greenbox" }
 ]

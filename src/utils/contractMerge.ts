@@ -239,13 +239,12 @@ export default function contractMerge(template: string, data: MergeData): string
     // Filter out extension sections if not selected
     if (!hasExtensionOption && (
       line.includes('2.5 הארכת תקופת השכירות') ||
-      line.includes('2.6 למשכיר תינתן אופציה להארכת תקופת השכירות') ||
-      line.includes('2.7 על השוכר למסור הודעה מראש')
+      line.includes('2.6 בכפוף לעמידה בהתחייבויות, לכל אחד מהצדדים תינתן אפשרות לחדש את ההסכם')
     )) return false;
     
     // Filter out early exit section if not selected
     if (!allowEarlyExit && (
-      line.includes('יציאה מוקדמת תותר ככל שנבחרה האפשרות לכך') ||
+      line.includes('יציאה מוקדמת תותר') ||
       line.includes('(א) ימציא שוכר חלופי') ||
       line.includes('(ב) ישלם פיצוי מוסכם') ||
       line.includes('(ג) יעמוד בכל התחייבויותיו')
@@ -260,6 +259,17 @@ export default function contractMerge(template: string, data: MergeData): string
     const insertIndex = lines.findIndex(line => line.includes('2.4')) + 1;
     if (insertIndex > 0) {
       lines.splice(insertIndex, 0, '2.5 הצדדים מסכימים כי תקופת השכירות הינה קבועה וסופית, וכי לא תתאפשר הארכתה מעבר למועד הסיום הנקוב לעיל.');
+      
+      // Renumber subsequent clauses
+      for (let i = insertIndex + 1; i < lines.length; i++) {
+        const line = lines[i];
+        const sectionMatch = line.match(/^2\.(\d+)/);
+        if (sectionMatch) {
+          const currentNumber = parseInt(sectionMatch[1]);
+          const newNumber = currentNumber + 1;
+          lines[i] = line.replace(/^2\.\d+/, `2.${newNumber}`);
+        }
+      }
     }
   }
 
@@ -290,6 +300,35 @@ export default function contractMerge(template: string, data: MergeData): string
 
   processed = lines.join('\n');
 
+  // Insert extension rent clause if extension is enabled (BEFORE general placeholder replacement)
+  let extensionRentClause = '';
+  if (data['hasExtensionOption'] === 'כן' && data['extensionRent'] && String(data['extensionRent']).trim() !== '') {
+    extensionRentClause = `2.7 דמי השכירות לתקופת הארכה יהיו בסך <strong>${data['extensionRent']}</strong> ש"ח.`;
+  }
+  processed = processed.replace(/{{extensionRentClause}}/g, extensionRentClause);
+  
+  // Fix numbering: if extension rent clause is inserted, change early exit from 2.7 to 2.8
+  if (extensionRentClause) {
+    processed = processed.replace(/^2\.7 יציאה מוקדמת/gm, '2.8 יציאה מוקדמת');
+  } else if (!hasExtensionOption) {
+    // If extension is disabled, early exit should be 2.8 (because we added a new 2.5 clause)
+    processed = processed.replace(/^2\.7 יציאה מוקדמת/gm, '2.8 יציאה מוקדמת');
+  }
+
+  // Handle early exit compensation clause BEFORE general placeholder replacement
+  processed = processed.replace(/\{\{earlyExitCompensationClause\}\}/g, () => {
+    if (data.earlyExitCompensationType === '2 חודשי שכירות או מציאת שוכר חלופי') {
+      return '2 חודשי שכירות או מציאת שוכר חלופי, המוקדם מביניהם';
+    } else if (data.earlyExitCompensation && typeof data.earlyExitCompensation === 'string' && data.earlyExitCompensation.trim() !== '') {
+      return `סך ${data.earlyExitCompensation} ש"ח`;
+    } else if (data.allowEarlyExit === 'כן') {
+      // If early exit is enabled but no specific compensation is set, use default
+      return '2 חודשי שכירות או מציאת שוכר חלופי, המוקדם מביניהם';
+    } else {
+      return 'סכום שיוסכם בין הצדדים';
+    }
+  });
+
   // Replace all remaining placeholders with values
   processed = processed.replace(/{{([^}]+)}}/g, (match, key) => {
     const value = data[key.trim()];
@@ -307,13 +346,6 @@ export default function contractMerge(template: string, data: MergeData): string
     // Wrap the value in bold tags
     return `<strong>${displayValue}</strong>`;
   });
-
-  // Insert extension rent clause if extension is enabled
-  let extensionRentClause = '';
-  if (data['hasExtensionOption'] === 'כן' && data['extensionRent']) {
-    extensionRentClause = `2.7.1 דמי השכירות לתקופת הארכה יהיו בסך <strong>${data['extensionRent']}</strong> ש"ח.`;
-  }
-  processed = processed.replace(/{{extensionRentClause}}/g, extensionRentClause);
 
   // Generate lateInterestClause for 5.1
   let lateInterestClause = '';
@@ -479,8 +511,13 @@ export function generateSummarySection(data: MergeData): string {
 
   // Add early exit option
   if (data.allowEarlyExit === 'כן') {
-    const compensation = data.earlyExitCustomCompensation || data.earlyExitCompensation || '-';
-    summary.push(`• אפשרות יציאה מוקדמת: כן, פיצוי: ${compensation}`);
+    if (data.earlyExitCompensationType === '2 חודשי שכירות או מציאת שוכר חלופי') {
+      summary.push(`• אפשרות יציאה מוקדמת: כן, פיצוי: 2 חודשי שכירות או מציאת שוכר חלופי`);
+    } else if (data.earlyExitCompensation) {
+      summary.push(`• אפשרות יציאה מוקדמת: כן, פיצוי: ${data.earlyExitCompensation}`);
+    } else {
+      summary.push(`• אפשרות יציאה מוקדמת: כן`);
+    }
   }
 
   // Add pets allowance

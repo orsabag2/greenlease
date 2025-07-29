@@ -2,6 +2,10 @@
 import html2pdf from 'html2pdf.js';
 import React, { useEffect, useState } from 'react';
 import contractMerge from '@/utils/contractMerge';
+import { auth, db } from '@/utils/firebase';
+import type { User } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { useRouter } from 'next/navigation';
 // REMOVE: import { PDFDownloadLink } from '@react-pdf/renderer';
 // REMOVE: import ContractPdfDocument from './ContractPdfDocument';
 
@@ -87,6 +91,12 @@ function formatContractText(text: string): string {
   return formattedLines.join('\n');
 }
 
+// Email validation function
+function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+}
+
 export default function ContractPreviewPage() {
   const [contract, setContract] = useState('');
   const [meta, setMeta] = useState<ContractMeta | null>(null);
@@ -94,13 +104,99 @@ export default function ContractPreviewPage() {
   const [emailToSend, setEmailToSend] = useState('');
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [paymentVerified, setPaymentVerified] = useState(false);
+  const [loadingPayment, setLoadingPayment] = useState(true);
+  const router = useRouter();
+
+  // Authentication check
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(u => {
+      setUser(u);
+      setLoadingAuth(false);
+      if (!u) {
+        router.push('/');
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
+
+  // Payment verification
+  useEffect(() => {
+    if (!user) return;
+
+    const verifyPayment = async () => {
+      try {
+        setLoadingPayment(true);
+        
+        // Get the contract ID from localStorage
+        const contractId = localStorage.getItem('currentContractId');
+        
+        if (!contractId) {
+          console.error('No contract ID found in localStorage');
+          router.push('/dashboard');
+          return;
+        }
+        
+        const contractDoc = await getDoc(doc(db, 'formAnswers', contractId));
+        
+        if (contractDoc.exists()) {
+          const data = contractDoc.data();
+          // Check both paymentStatus and status fields for compatibility
+          if (data.paymentStatus === 'paid' || data.status === 'paid') {
+            setPaymentVerified(true);
+          } else {
+            // Redirect to dashboard if payment not completed
+            router.push('/dashboard');
+          }
+        } else {
+          // No contract data found, redirect to dashboard
+          router.push('/dashboard');
+        }
+      } catch (error) {
+        console.error('Error verifying payment:', error);
+        router.push('/dashboard');
+      } finally {
+        setLoadingPayment(false);
+      }
+    };
+
+    verifyPayment();
+  }, [user, router]);
 
   useEffect(() => {
     // Update document title with apartment address when metadata is available
-    if (meta?.street && meta?.propertyCity) {
-      document.title = `הסכם שכירות למגורים - ${meta.street}, ${meta.propertyCity}`;
+    if (meta) {
+      const addressParts = [];
+      if (meta.street) addressParts.push(meta.street);
+      if (meta.buildingNumber) addressParts.push(meta.buildingNumber);
+      if (meta.apartmentNumber) addressParts.push(`דירה ${meta.apartmentNumber}`);
+      if (meta.propertyCity) addressParts.push(meta.propertyCity);
+      
+      const fullAddress = addressParts.length > 0 ? addressParts.join(' ') : 'כתובת לא זמינה';
+      document.title = `הסכם שכירות למגורים - ${fullAddress}`;
+      
+      // Change favicon to green contract icon
+      const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement || document.createElement('link');
+      link.type = 'image/svg+xml';
+      link.rel = 'icon';
+      link.href = '/contract-favicon.svg';
+      if (!document.querySelector("link[rel*='icon']")) {
+        document.getElementsByTagName('head')[0].appendChild(link);
+      }
     }
+    
+    // Cleanup function to restore original favicon when component unmounts
+    return () => {
+      const link = document.querySelector("link[rel*='icon']") as HTMLLinkElement;
+      if (link) {
+        link.href = '/favicon.png';
+        link.type = 'image/png';
+      }
+    };
   }, [meta]);
 
   useEffect(() => {
@@ -133,6 +229,67 @@ export default function ContractPreviewPage() {
 
         // Merge template with data
         let mergedContract = contractMerge(template, data);
+
+        // Remove conditional blocks (simple MVP: no #if logic)
+        mergedContract = mergedContract.replace(/{{#if [^}]+}}([\s\S]*?){{\/if}}/g, (m, content) => {
+          // Check if the condition is met
+          const match = m.match(/{{#if \(eq ([^)]+) "([^"]+)"\)}}/);
+          if (match) {
+            const key = match[1].trim();
+            const expectedValue = match[2].trim();
+            console.log(`Condition check: ${key} = "${data[key]}" expected "${expectedValue}"`);
+            if (data[key] === expectedValue) {
+              console.log(`Condition met, including content: ${content.trim()}`);
+              return content.trim();
+            }
+            console.log(`Condition not met, removing content`);
+            return '';
+          }
+          
+          // Fallback for simple conditions
+          const simpleMatch = m.match(/{{#if ([^}]+)}}/);
+          if (simpleMatch) {
+            const key = simpleMatch[1].trim();
+            if (data[key]) return content.trim();
+            return '';
+          }
+          
+          return '';
+        });
+
+        // Clean up any remaining conditional block artifacts or extra dashes
+        mergedContract = mergedContract
+          .replace(/\n\s*-\s*\n/g, '\n') // Remove lines with just dashes
+          .replace(/\n\s*{{#if[^}]*}}\s*\n/g, '\n') // Remove any remaining #if tags
+          .replace(/\n\s*{{\/if}}\s*\n/g, '\n') // Remove any remaining /if tags
+          .replace(/\n\s*-\s*$/gm, '\n') // Remove dashes at end of lines
+          .replace(/^\s*-\s*\n/gm, '\n') // Remove dashes at start of lines
+          .replace(/\n\s*-\s*\n/g, '\n') // Remove standalone dash lines
+          .replace(/\n{3,}/g, '\n\n'); // Remove excessive newlines
+
+        // Additional cleanup: Remove garden maintenance clause if not selected
+        if (data.gardenMaintenance !== "כן, ברצוני שהשוכר יהיה אחראי על תחזוקת הגינה") {
+          console.log('Garden maintenance not selected, removing clause');
+          mergedContract = mergedContract.replace(/6\.3 השוכר מתחייב לבצע תחזוקה שוטפת של הגינה הצמודה למושכר, לרבות השקיה, ניקיון וגיזום, ולשמור על מצבה התקין לאורך כל תקופת השכירות\.\n?/g, '');
+          
+          // Renumber the subsequent clauses after removing 6.3
+          mergedContract = mergedContract
+            .replace(/^6\.4/gm, '6.3')
+            .replace(/^6\.5/gm, '6.4')
+            .replace(/^6\.6/gm, '6.5')
+            .replace(/^6\.7/gm, '6.6');
+        }
+
+        // Additional cleanup specifically for clause 6.3 area
+        mergedContract = mergedContract
+          .replace(/(6\.2[^\n]*)\n\s*-\s*\n(6\.3[^\n]*)/g, '$1\n$2') // Remove dash between 6.2 and 6.3
+          .replace(/(6\.3[^\n]*)\n\s*-\s*\n(6\.4[^\n]*)/g, '$1\n$2') // Remove dash between 6.3 and 6.4
+          .replace(/\n\s*-\s*\n/g, '\n') // Remove any standalone dash lines
+          .replace(/\n\s*-\s*$/gm, '\n') // Remove dashes at end of lines
+          .replace(/^\s*-\s*\n/gm, '\n') // Remove dashes at start of lines
+          .replace(/\n\s*-\s*\n/g, '\n'); // Final pass to catch any remaining dashes
+
+
 
         // Handle multiple tenants if present
         if (Array.isArray(rawData.tenants) && rawData.tenants.length > 1) {
@@ -192,6 +349,19 @@ ${signatureLines}`;
         // Format the contract text with indentation
         mergedContract = formatContractText(mergedContract);
         
+        // Final cleanup to remove any remaining dashes
+        mergedContract = mergedContract
+          .replace(/\n\s*-\s*\n/g, '\n')
+          .replace(/\n\s*-\s*$/gm, '\n')
+          .replace(/^\s*-\s*\n/gm, '\n')
+          .replace(/\n{3,}/g, '\n\n')
+          .replace(/<div><strong>-<\/strong><\/div>/g, '') // Remove HTML dash divs
+          .replace(/<div>\s*<strong>-\s*<\/strong>\s*<\/div>/g, '') // Remove HTML dash divs with whitespace
+          .replace(/<div>\s*-\s*<\/div>/g, '') // Remove any div containing just a dash
+          .replace(/<strong>-<\/strong>/g, '') // Remove any strong tags with just a dash
+          .replace(/<div>\s*<strong>-<\/strong>\s*<\/div>/g, '') // Remove div with strong dash
+          .replace(/<div>\s*-\s*<\/div>/g, ''); // Remove any div with just a dash
+        
         setContract(mergedContract);
       })
       .catch(error => {
@@ -216,6 +386,25 @@ ${signatureLines}`;
     }
   }, []);
 
+  // Show loading state while checking authentication and payment
+  if (loadingAuth || loadingPayment) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#38E18E] mx-auto"></div>
+          <p className="mt-4 text-gray-600" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+            {loadingAuth ? 'בודק הרשאות...' : 'בודק תשלום...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect if not authenticated or payment not verified
+  if (!user || !paymentVerified) {
+    return null; // Will redirect via useEffect
+  }
+
   return (
     <>
       <main className="min-h-screen flex flex-col items-center bg-white text-gray-900" style={{ fontFamily: 'var(--contract-font)' }} dir="rtl">
@@ -228,76 +417,102 @@ ${signatureLines}`;
           background: 'rgba(255,255,255,0.98)',
           boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
           display: 'flex',
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+          flexDirection: 'column',
           padding: '16px 32px',
           zIndex: 1000
         }}>
-          <div className="text-xl font-bold" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>תצוגה מקדימה של החוזה</div>
-          <div className="flex gap-2">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 mb-1">
             <button
-              className="bg-[#2563eb] text-white font-bold px-6 py-2 rounded-lg shadow hover:bg-[#1d4ed8] transition-colors flex items-center justify-center min-w-[120px]"
-              disabled={downloading}
-              onClick={async () => {
-                setDownloading(true);
-                try {
-                  const contractNode = document.querySelector('.contract-preview');
-                  if (!contractNode) {
-                    alert('לא נמצא תוכן החוזה להורדה');
-                    return;
-                  }
-                  let css = '';
-                  for (const sheet of Array.from(document.styleSheets)) {
-                    try {
-                      css += Array.from(sheet.cssRules).map(rule => rule.cssText).join(' ');
-                    } catch (e) { /* ignore CORS issues */ }
-                  }
-                  const html = contractNode.outerHTML;
-                  const response = await fetch('/api/generate-pdf', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ html, css }),
-                  });
-                  if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'contract.pdf';
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                    window.URL.revokeObjectURL(url);
-                  } else {
-                    alert('PDF generation failed');
-                  }
-                } finally {
-                  setDownloading(false);
-                }
-              }}
+              onClick={() => router.push('/dashboard')}
+              className="text-gray-500 hover:text-gray-700 transition-colors text-sm flex items-center gap-1 cursor-pointer"
+              style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
             >
-              {downloading ? (
-                <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
-                  מעבד PDF...
-                </span>
-              ) : (
-                'הורד PDF'
-              )}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span>החוזים שלי</span>
             </button>
-            <button
-              className="bg-blue-500 text-white font-bold px-6 py-2 rounded-lg shadow hover:bg-blue-700 transition-colors"
-              onClick={() => setShowEmailModal(true)}
-            >
-              שלח במייל
-            </button>
-            <button
-              className="bg-[#38E18E] text-white font-bold px-6 py-2 rounded-lg shadow hover:bg-[#2bc77a] transition-colors"
-              onClick={() => window.print()}
-            >
-              הדפס
-            </button>
+          </div>
+          
+          {/* Main Header Content */}
+          <div className="flex items-center justify-between w-full">
+            <div className="text-lg font-bold" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+              {meta ? (() => {
+                const addressParts = [];
+                if (meta.street) addressParts.push(meta.street);
+                if (meta.buildingNumber) addressParts.push(meta.buildingNumber);
+                if (meta.apartmentNumber) addressParts.push(`דירה ${meta.apartmentNumber}`);
+                if (meta.propertyCity) addressParts.push(meta.propertyCity);
+                
+                const fullAddress = addressParts.length > 0 ? addressParts.join(' ') : 'כתובת לא זמינה';
+                return `הסכם שכירות למגורים ל${fullAddress}`;
+              })() : 'תצוגה מקדימה של החוזה'}
+            </div>
+            <div className="flex gap-2">
+                          <button
+                className="bg-[#38E18E] text-[#281D57] font-bold px-4 py-1.5 rounded-lg shadow hover:bg-[#2bc77a] transition-colors flex items-center justify-center min-w-[100px] text-sm"
+                disabled={downloading}
+                onClick={async () => {
+                  setDownloading(true);
+                  try {
+                    const contractNode = document.querySelector('.contract-preview');
+                    if (!contractNode) {
+                      alert('לא נמצא תוכן החוזה להורדה');
+                      return;
+                    }
+                    let css = '';
+                    for (const sheet of Array.from(document.styleSheets)) {
+                      try {
+                        css += Array.from(sheet.cssRules).map(rule => rule.cssText).join(' ');
+                      } catch (e) { /* ignore CORS issues */ }
+                    }
+                    const html = contractNode.outerHTML;
+                    const response = await fetch('/api/generate-pdf', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ html, css }),
+                    });
+                    if (response.ok) {
+                      const blob = await response.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'contract.pdf';
+                      document.body.appendChild(a);
+                      a.click();
+                      a.remove();
+                      window.URL.revokeObjectURL(url);
+                    } else {
+                      alert('PDF generation failed');
+                    }
+                  } finally {
+                    setDownloading(false);
+                  }
+                }}
+              >
+                {downloading ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                    מעבד PDF...
+                  </span>
+                ) : (
+                  'הורד PDF'
+                )}
+              </button>
+              <button
+                className="bg-[#38E18E] text-[#281D57] font-bold px-4 py-1.5 rounded-lg shadow hover:bg-[#2bc77a] transition-colors text-sm"
+                onClick={() => setShowEmailModal(true)}
+              >
+                שלח במייל
+              </button>
+              <button
+                className="bg-[#38E18E] text-[#281D57] font-bold px-4 py-1.5 rounded-lg shadow hover:bg-[#2bc77a] transition-colors text-sm"
+                onClick={() => window.print()}
+              >
+                הדפס
+              </button>
+            </div>
           </div>
         </header>
         {/* Email Modal */}
@@ -309,21 +524,85 @@ ${signatureLines}`;
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontFamily: 'Noto Sans Hebrew, Arial, sans-serif',
           }}>
-            <div style={{ background: '#fff', borderRadius: 12, padding: 32, minWidth: 320, boxShadow: '0 2px 16px rgba(0,0,0,0.12)', fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-              <div className="mb-4 text-lg font-bold" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>שלח את החוזה במייל</div>
+            <div style={{ background: '#fff', borderRadius: 12, padding: 32, minWidth: 320, boxShadow: '0 2px 16px rgba(0,0,0,0.12)', fontFamily: 'Noto Sans Hebrew, Arial, sans-serif', position: 'relative' }}>
+              {/* Close Button */}
+              <button
+                onClick={() => setShowEmailModal(false)}
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  left: '12px',
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#666',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '50%',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                ×
+              </button>
+              
+              {/* Title above image */}
+              <div className="mb-4 text-lg font-bold text-center" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>שלח את החוזה במייל</div>
+              
+              {/* Email Illustration */}
+              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                <img 
+                  src="/send-email.png" 
+                  alt="Send Email" 
+                  style={{ 
+                    maxWidth: '400px', 
+                    maxHeight: '280px',
+                    width: 'auto',
+                    height: 'auto',
+                    objectFit: 'contain',
+                    marginBottom: '16px'
+                  }} 
+                />
+              </div>
               <input
                 type="email"
                 value={emailToSend}
-                onChange={e => setEmailToSend(e.target.value)}
-                className="border rounded px-3 py-2 w-full mb-4"
+                onChange={e => {
+                  setEmailToSend(e.target.value);
+                  setEmailError(null); // Clear error when user types
+                  setSendResult(null); // Clear previous result
+                }}
+                className={`border rounded px-3 py-2 w-full mb-2 ${emailError ? 'border-red-500' : 'border-gray-300'}`}
                 placeholder="הזן כתובת מייל"
                 style={{ direction: 'ltr', fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
               />
-              <div className="flex gap-2">
+              {emailError && (
+                <div className="text-red-500 text-sm mb-4" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                  {emailError}
+                </div>
+              )}
+              <div className="w-full">
                 <button
-                  className="bg-blue-500 text-white font-bold px-6 py-2 rounded-lg shadow hover:bg-blue-700 transition-colors flex items-center justify-center min-w-[100px]"
+                  className="bg-[#38E18E] text-[#281D57] font-bold px-8 py-2 rounded-lg shadow hover:bg-[#2bc77a] transition-colors flex items-center justify-center w-full text-sm"
                   disabled={sending}
                   onClick={async () => {
+                    // Validate email before sending
+                    if (!emailToSend.trim()) {
+                      setEmailError('נא להזין כתובת מייל');
+                      return;
+                    }
+                    
+                    if (!isValidEmail(emailToSend.trim())) {
+                      setEmailError('נא להזין כתובת מייל תקינה');
+                      return;
+                    }
+                    
+                    setEmailError(null);
                     setSending(true);
                     setSendResult(null);
                     const contractNode = document.querySelector('.contract-preview');
@@ -338,7 +617,12 @@ ${signatureLines}`;
                     const response = await fetch('/api/send-pdf', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ html, css, email: emailToSend }),
+                      body: JSON.stringify({ 
+                        html, 
+                        css, 
+                        email: emailToSend.trim(),
+                        propertyAddress: meta ? `${meta.street || ''} ${meta.buildingNumber || ''} ${meta.apartmentNumber || ''} ${meta.propertyCity || ''}`.trim() : ''
+                      }),
                     });
                     setSending(false);
                     if (response.ok) {
@@ -351,19 +635,12 @@ ${signatureLines}`;
                 >
                   {sending ? (
                     <span className="flex items-center gap-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
                       שולח...
                     </span>
                   ) : (
                     'שלח'
                   )}
-                </button>
-                <button
-                  className="bg-gray-200 text-gray-800 font-bold px-6 py-2 rounded-lg shadow hover:bg-gray-300 transition-colors"
-                  onClick={() => setShowEmailModal(false)}
-                  style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
-                >
-                  ביטול
                 </button>
               </div>
               {sendResult && <div className="mt-4 text-center text-sm" style={{ color: sendResult.includes('נשלח') ? '#38E18E' : '#e11d48', fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>{sendResult}</div>}
@@ -391,8 +668,8 @@ ${signatureLines}`;
           </div>
           <div style={{ lineHeight: 1.4 }}>
             {contract.split('\n').map((line, index) => {
-              // Skip empty lines and separator lines
-              if (!line.trim() || line.trim() === '⸻') return null;
+              // Skip empty lines, separator lines, and any remaining conditional block artifacts
+              if (!line.trim() || line.trim() === '⸻' || line.trim() === '-' || line.trim().startsWith('{{#if') || line.trim().startsWith('{{/if') || line.includes('<div><strong>-</strong></div>') || line.includes('<strong>-</strong>') || line.trim() === '<div><strong>-</strong></div>') return null;
 
               // Special handling for 5.1 and 5.2
               if (line.trim().startsWith('5.1')) {

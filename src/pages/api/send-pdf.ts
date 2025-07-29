@@ -8,7 +8,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return;
   }
 
-  const { html, css, email } = req.body;
+  const { html, css, email, propertyAddress } = req.body;
   if (!html || !email) {
     res.status(400).json({ error: 'Missing HTML or email' });
     return;
@@ -60,6 +60,197 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error('PDF generation failed');
     }
 
+    // Create beautiful HTML email template
+    const emailHtml = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="he">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>החוזה שלך מוכן!</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;500;600;700&display=swap');
+          
+          * {
+            direction: rtl;
+            text-align: right;
+          }
+          
+          body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Noto Sans Hebrew', Arial, sans-serif;
+            background-color: #f5f5f5;
+            direction: rtl;
+            text-align: right;
+          }
+          
+          .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            direction: rtl;
+          }
+          
+          .header {
+            text-align: center;
+            padding: 40px 20px 20px;
+            background: linear-gradient(135deg,rgb(255, 255, 255) 0%,rgb(255, 255, 255) 100%);
+            direction: rtl;
+          }
+          
+          .logo {
+            display: inline-block;
+            max-width: 200px;
+            height: auto;
+          }
+          
+          .main-content {
+            padding: 40px 30px;
+            text-align: center;
+            direction: rtl;
+          }
+          
+          .illustration {
+            margin: 30px 0;
+            text-align: center;
+            direction: rtl;
+          }
+          
+          .illustration img {
+            max-width: 100%;
+            height: auto;
+            max-height: 300px;
+          }
+          
+          .title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1a365d;
+            margin-bottom: 20px;
+            line-height: 1.2;
+            direction: rtl;
+            text-align: center;
+          }
+          
+          .description {
+            font-size: 18px;
+            color: #374151;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            direction: rtl;
+            text-align: center;
+          }
+          
+          .instructions {
+            font-size: 16px;
+            color: #6b7280;
+            line-height: 1.5;
+            margin-bottom: 30px;
+            direction: rtl;
+            text-align: center;
+          }
+          
+          .footer {
+            background-color: #f8fafc;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e5e7eb;
+            direction: rtl;
+          }
+          
+          .signature {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a365d;
+            margin-bottom: 8px;
+            direction: rtl;
+            text-align: center;
+          }
+          
+          .team-name {
+            font-size: 16px;
+            color: #38E18E;
+            font-weight: 600;
+            direction: rtl;
+            text-align: center;
+          }
+          
+          .disclaimer {
+            font-size: 12px;
+            color: #9ca3af;
+            line-height: 1.4;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fefefe;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            direction: rtl;
+            text-align: center;
+          }
+          
+          @media (max-width: 600px) {
+            .email-container {
+              margin: 10px;
+              border-radius: 8px;
+            }
+            
+            .main-content {
+              padding: 30px 20px;
+            }
+            
+            .title {
+              font-size: 24px;
+            }
+            
+            .description {
+              font-size: 16px;
+            }
+            
+            .illustration img {
+              max-height: 200px;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="email-container">
+          <div class="header">
+            <img src="cid:logo@2x.png" alt="GreenLease" class="logo">
+          </div>
+          
+          <div class="main-content">
+            <div class="illustration">
+              <img src="cid:ready-for-sign.png" alt="Contract Ready for Signing">
+            </div>
+            
+            <h1 class="title">החוזה שלך מוכן!</h1>
+            
+            <p class="description">
+              סיימנו לבנות את חוזה השכירות שלך בהתאם לפרטים שמילאת.
+            </p>
+            
+            <p class="instructions">
+              מצורף קובץ PDF עם החוזה, מוכן להדפסה ולחתימה מול השוכר. מומלץ לקרוא אותו בעיון לפני החתימה, ולשמור עותק לעתיד.
+            </p>
+          </div>
+          
+          <div class="footer">
+            <div class="signature">בהצלחה בהשכרה,</div>
+            <div class="team-name">צוות GreenLease</div>
+            
+            <div class="disclaimer">
+              להזכירך: השירות שלנו אינו מהווה ייעוץ משפטי, והאחריות על השימוש במסמך היא שלך בלבד.
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
     // Send email with Nodemailer (using Gmail SMTP)
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -72,13 +263,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await transporter.sendMail({
       from: process.env.GMAIL_USER,
       to: email,
-      subject: 'הסכם שכירות - GreenLease',
-      text: 'מצורף קובץ PDF של החוזה שלך.',
+      subject: propertyAddress ? `החוזה שלך מ־GreenLease להשכרת הדירה ב־${propertyAddress} מוכן להורדה` : 'החוזה שלך מ־GreenLease מוכן להורדה',
+      html: emailHtml,
       attachments: [
         {
           filename: 'contract.pdf',
           content: pdfBuffer,
         },
+        {
+          filename: 'logo@2x.png',
+          path: './public/logo@2x.png',
+          cid: 'logo@2x.png'
+        },
+        {
+          filename: 'ready-for-sign.png',
+          path: './public/ready-for-sign.png',
+          cid: 'ready-for-sign.png'
+        }
       ],
     });
 

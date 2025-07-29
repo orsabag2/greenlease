@@ -60,8 +60,8 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
     }
     return (
       <div className={`flex flex-col mb-4 text-right ${isLandlord ? 'items-start' : 'items-end'}`} dir="rtl" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
-        <span className="text-sm font-medium text-[#1A4D2C] text-right" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', textAlign: 'right' }}>{question.label}</span>
-        <span className="text-base font-bold text-[#124E31] mt-1 text-right" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', textAlign: 'right' }}>{displayValue}</span>
+        <span className="text-sm font-medium text-[#281D57] text-right" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', textAlign: 'right' }}>{question.label}</span>
+        <span className="text-base font-bold text-[#281D57] mt-1 text-right" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', textAlign: 'right' }}>{displayValue}</span>
       </div>
     );
   }
@@ -120,7 +120,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
               fontSize: 14,
               lineHeight: '19px',
               textAlign: 'right',
-              color: '#1A4D2C',
+              color: '#281D57',
               alignSelf: 'stretch',
               flexGrow: 0,
             }}
@@ -138,7 +138,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
                   style={{
                     fontSize: 15,
                     background: selected ? '#38E18E' : '#fff',
-                    color: selected ? '#fff' : '#124E31',
+                    color: selected ? '#281d57' : '#281D57',
                     border: selected ? '2px solid #38E18E' : '2px solid #D1D5DB',
                     minWidth: 80,
                     fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
@@ -176,7 +176,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
     );
   }
 
-  if (question.id === 'hasParking' || question.id === 'hasStorage') {
+  if (question.id === 'hasParking' || question.id === 'hasStorage' || question.id === 'hasGarden') {
     const options = ['כן', 'לא'];
     return (
       <div className="mb-4 text-right" dir="rtl" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
@@ -192,7 +192,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
               fontSize: 14,
               lineHeight: '19px',
               textAlign: 'right',
-              color: '#1A4D2C',
+              color: '#281D57',
               alignSelf: 'stretch',
               flexGrow: 0,
             }}
@@ -210,7 +210,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
                   style={{
                     fontSize: 15,
                     background: selected ? '#38E18E' : '#fff',
-                    color: selected ? '#fff' : '#124E31',
+                    color: selected ? '#281d57' : '#281D57',
                     border: selected ? '2px solid #38E18E' : '2px solid #D1D5DB',
                     minWidth: 80,
                     fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
@@ -245,7 +245,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
               fontSize: 14,
               lineHeight: '19px',
               textAlign: 'right',
-              color: '#1A4D2C',
+              color: '#281D57',
               alignSelf: 'stretch',
               flexGrow: 0,
             }}
@@ -262,7 +262,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
                   className="px-6 py-3 rounded-lg font-medium text-base shadow-sm transition-all"
                   style={{
                     background: selected ? '#38E18E' : '#fff',
-                    color: selected ? '#fff' : '#124E31',
+                    color: selected ? '#281d57' : '#281D57',
                     border: selected ? '2px solid #38E18E' : '2px solid #D1D5DB',
                     minWidth: 120,
                     fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
@@ -297,7 +297,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
               fontSize: 14,
               lineHeight: '19px',
               textAlign: 'right',
-              color: '#1A4D2C',
+              color: '#281D57',
               alignSelf: 'stretch',
               flexGrow: 0,
             }}
@@ -314,7 +314,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
                   className="px-6 py-3 rounded-lg font-medium text-base shadow-sm transition-all"
                   style={{
                     background: selected ? '#38E18E' : '#fff',
-                    color: selected ? '#fff' : '#124E31',
+                    color: selected ? '#281d57' : '#281D57',
                     border: selected ? '2px solid #38E18E' : '2px solid #D1D5DB',
                     minWidth: 120,
                     fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
@@ -352,7 +352,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
               fontSize: 14,
               lineHeight: '19px',
               textAlign: 'right',
-              color: '#1A4D2C',
+              color: '#281D57',
               alignSelf: 'stretch',
               flexGrow: 0,
             }}
@@ -370,7 +370,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
                   style={{
                     fontSize: 15,
                     background: selected ? '#38E18E' : '#fff',
-                    color: selected ? '#fff' : '#124E31',
+                    color: selected ? '#281d57' : '#281D57',
                     border: selected ? '2px solid #38E18E' : '2px solid #D1D5DB',
                     minWidth: 80,
                     fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
@@ -426,7 +426,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
               fontSize: 14,
               lineHeight: '19px',
               textAlign: 'right',
-              color: '#1A4D2C',
+              color: '#281D57',
               alignSelf: 'stretch',
               flexGrow: 0,
             }}
@@ -444,7 +444,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
                   style={{
                     fontSize: 15,
                     background: selected ? '#38E18E' : '#fff',
-                    color: selected ? '#fff' : '#124E31',
+                    color: selected ? '#281d57' : '#281D57',
                     border: selected ? '2px solid #38E18E' : '2px solid #D1D5DB',
                     minWidth: 80,
                     fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
@@ -483,7 +483,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
     );
   }
 
-  if ((question.id === 'hasExtensionOption' || question.id === 'allowEarlyExit' || question.id === 'lateInterestType' || question.id === 'evacuationPenaltyType') && question.options) {
+  if ((question.id === 'hasExtensionOption' || question.id === 'allowEarlyExit' || question.id === 'earlyExitCompensationType' || question.id === 'lateInterestType' || question.id === 'evacuationPenaltyType') && question.options) {
     const options = question.options as string[];
     return (
       <div className="mb-4 text-right" dir="rtl" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
@@ -499,7 +499,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
               fontSize: 14,
               lineHeight: '19px',
               textAlign: 'right',
-              color: '#1A4D2C',
+              color: '#281D57',
               alignSelf: 'stretch',
               flexGrow: 0,
             }}
@@ -517,7 +517,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
                   style={{
                     fontSize: 15,
                     background: selected ? '#38E18E' : '#fff',
-                    color: selected ? '#fff' : '#124E31',
+                    color: selected ? '#281d57' : '#281D57',
                     border: selected ? '2px solid #38E18E' : '2px solid #D1D5DB',
                     minWidth: 80,
                     fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
@@ -532,50 +532,8 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
             })}
           </div>
         </div>
-        {question.id === 'lateInterestType' && value === 'סכום קבוע' && (
-          <div className="mt-3">
-            <input
-              type="number"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              onKeyDown={e => {
-                if (["e", "E", "+", "-", "."].includes(e.key)) {
-                  e.preventDefault();
-                }
-              }}
-              className="border rounded px-3 py-2 w-full text-right border-[#D1D5DB] focus:border-[#38E18E] focus:ring-2 focus:ring-[#38E18E] transition-colors"
-              placeholder="לדוגמה: 50"
-              value={answers?.lateInterestFixedAmount || ''}
-              onChange={e => {
-                const digits = e.target.value.replace(/\D/g, '');
-                setAnswers && setAnswers((prev: any) => ({ ...prev, lateInterestFixedAmount: digits }));
-              }}
-              style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
-            />
-          </div>
-        )}
-        {question.id === 'evacuationPenaltyType' && value === 'לגבות סכום קבוע ליום' && (
-          <div className="mt-3">
-            <input
-              type="number"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              onKeyDown={e => {
-                if (["e", "E", "+", "-", "."].includes(e.key)) {
-                  e.preventDefault();
-                }
-              }}
-              className="border rounded px-3 py-2 w-full text-right border-[#D1D5DB] focus:border-[#38E18E] focus:ring-2 focus:ring-[#38E18E] transition-colors"
-              placeholder="לדוגמה: 100"
-              value={answers?.evacuationPenaltyFixedAmount || ''}
-              onChange={e => {
-                const digits = e.target.value.replace(/\D/g, '');
-                setAnswers && setAnswers((prev: any) => ({ ...prev, evacuationPenaltyFixedAmount: digits }));
-              }}
-              style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}
-            />
-          </div>
-        )}
+
+
       </div>
     );
   }
@@ -596,7 +554,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
               fontSize: 14,
               lineHeight: '19px',
               textAlign: 'right',
-              color: '#1A4D2C',
+              color: '#281D57',
               alignSelf: 'stretch',
               flexGrow: 0,
             }}
@@ -613,12 +571,74 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
                   className="px-6 py-3 rounded-lg font-medium text-base shadow-sm transition-all"
                   style={{
                     background: selected ? '#38E18E' : '#fff',
-                    color: selected ? '#fff' : '#124E31',
+                    color: selected ? '#281d57' : '#281D57',
                     border: selected ? '2px solid #38E18E' : '2px solid #D1D5DB',
                     minWidth: 120,
                     fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
                     fontWeight: 500,
                     boxShadow: selected ? '0 2px 8px #38E18E22' : '0 1px 4px #0001',
+                  }}
+                  onClick={() => onChange(opt)}
+                >
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (question.id === 'gardenMaintenance') {
+    const options = question.options || ['כן', 'לא'];
+    return (
+      <div className="mb-4 text-right" dir="rtl" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+          <label
+            className="block mb-3"
+            style={{
+              width: '100%',
+              fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
+              fontStyle: 'normal',
+              fontWeight: 500,
+              fontSize: 14,
+              lineHeight: '1.4',
+              textAlign: 'right',
+              color: '#281D57',
+              alignSelf: 'stretch',
+              flexGrow: 0,
+              whiteSpace: 'normal',
+              wordBreak: 'break-word',
+            }}
+          >
+            {question.label}
+          </label>
+          <div className="flex flex-col gap-3 mt-2" style={{ width: '100%' }}>
+            {options.map(opt => {
+              const selected = value === opt;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  className="px-4 py-3 rounded-lg font-medium shadow-sm transition-all"
+                  style={{
+                    fontSize: 14,
+                    background: selected ? '#38E18E' : '#fff',
+                    color: selected ? '#281d57' : '#281D57',
+                    border: selected ? '2px solid #38E18E' : '2px solid #D1D5DB',
+                    width: 'fit-content',
+                    maxWidth: '100%',
+                    fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
+                    fontWeight: 500,
+                    boxShadow: selected ? '0 2px 8px #38E18E22' : '0 1px 4px #0001',
+                    whiteSpace: 'normal',
+                    wordBreak: 'break-word',
+                    lineHeight: '1.4',
+                    minHeight: 'auto',
+                    textAlign: 'right',
+                    alignSelf: 'flex-start',
+                    direction: 'rtl',
                   }}
                   onClick={() => onChange(opt)}
                 >
@@ -649,7 +669,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
               fontSize: 14,
               lineHeight: '19px',
               textAlign: 'right',
-              color: '#1A4D2C',
+              color: '#281D57',
               alignSelf: 'stretch',
               flexGrow: 0,
             }}
@@ -663,7 +683,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
                 <button
                   key={opt}
                   type="button"
-                  className={`px-4 py-2 rounded-lg font-bold transition-colors duration-150 text-sm focus:outline-none ${selected ? 'bg-[#38E18E] text-[#124E31] border-[#38E18E]' : 'bg-white text-[#124E31] border-[#D1D5DB]'}`}
+                  className={`px-4 py-2 rounded-lg font-bold transition-colors duration-150 text-sm focus:outline-none ${selected ? 'bg-[#38E18E] text-[#281D57] border-[#38E18E]' : 'bg-white text-[#281D57] border-[#D1D5DB]'}`}
                   style={{
                     border: '2px solid',
                     boxShadow: selected ? '0 2px 8px #38E18E22' : 'none',
@@ -715,7 +735,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
               fontSize: 14,
               lineHeight: '19px',
               textAlign: 'right',
-              color: '#1A4D2C',
+              color: '#281D57',
               alignSelf: 'stretch',
               flexGrow: 0,
               whiteSpace: 'normal',
@@ -726,7 +746,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
           </label>
           <select
             className="border rounded px-3 py-2 w-full text-right border-[#D1D5DB] focus:border-[#38E18E] focus:ring-2 focus:ring-[#38E18E] transition-colors mt-2"
-            style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', fontSize: 15, color: '#124E31', background: '#fff', minWidth: 120 }}
+            style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', fontSize: 15, color: '#281D57', background: '#fff', minWidth: 120 }}
             value={value ?? ''}
             onChange={e => onChange(e.target.value)}
             disabled={disabled}
@@ -792,7 +812,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
               fontSize: 14,
               lineHeight: '19px',
               textAlign: 'right',
-              color: '#1A4D2C',
+              color: '#281D57',
               alignSelf: 'stretch',
               flexGrow: 0,
             }}
@@ -842,7 +862,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
               fontSize: 14,
               lineHeight: '19px',
               textAlign: 'right',
-              color: '#1A4D2C',
+              color: '#281D57',
               alignSelf: 'stretch',
               flexGrow: 0,
               whiteSpace: 'normal',
@@ -862,7 +882,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
                   style={{
                     fontSize: 15,
                     background: selected ? '#38E18E' : '#fff',
-                    color: selected ? '#fff' : '#124E31',
+                    color: selected ? '#281d57' : '#281D57',
                     border: selected ? '2px solid #38E18E' : '2px solid #D1D5DB',
                     minWidth: 80,
                     fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
@@ -886,7 +906,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
     return (
       <div className="mb-4 text-right" dir="rtl" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
-          <label className="block mb-1" style={{ width: '100%', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', fontWeight: 500, fontSize: 14, color: '#1A4D2C', textAlign: 'right' }}>{question.label}</label>
+          <label className="block mb-1" style={{ width: '100%', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', fontWeight: 500, fontSize: 14, color: '#281D57', textAlign: 'right' }}>{question.label}</label>
           <input
             type="tel"
             inputMode="tel"
@@ -909,7 +929,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
     return (
       <div className="mb-4 text-right" dir="rtl" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
-          <label className="block mb-1" style={{ width: '100%', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', fontWeight: 500, fontSize: 14, color: '#1A4D2C', textAlign: 'right' }}>{question.label}</label>
+          <label className="block mb-1" style={{ width: '100%', fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif', fontWeight: 500, fontSize: 14, color: '#281D57', textAlign: 'right' }}>{question.label}</label>
           <input
             type="number"
             inputMode="numeric"
@@ -942,7 +962,7 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
             fontSize: 14,
             lineHeight: '19px',
             textAlign: 'right',
-            color: '#1A4D2C',
+            color: '#281D57',
             alignSelf: 'stretch',
             flexGrow: 0,
           }}

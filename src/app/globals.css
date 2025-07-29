@@ -2,6 +2,26 @@
 @import url('https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700&display=swap');
 @import "tailwindcss";
 
+/* Custom z-index utilities */
+.z-45 {
+  z-index: 45;
+}
+
+/* Mobile avatar dropdown positioning */
+@media (max-width: 600px) {
+  .avatar-dropdown-container {
+    position: relative !important;
+  }
+  
+  .avatar-dropdown-container .absolute {
+    position: absolute !important;
+    top: 100% !important;
+    right: 0 !important;
+    transform: none !important;
+    margin-top: 8px !important;
+  }
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -22,6 +42,19 @@
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+  }
+}
+
+/* Override dark mode for small screens */
+@media (prefers-color-scheme: dark) and (max-width: 400px) {
+  :root {
+    --background: #ffffff;
+    --foreground: #171717;
+  }
+  
+  body {
+    background: #ffffff !important;
+    color: #171717 !important;
   }
 }
 
@@ -147,6 +180,9 @@ input::placeholder, textarea::placeholder, select::placeholder {
   text-align: center;
   margin-bottom: 18px;
   font-weight: 600;
+  width: inherit;
+  margin-left: auto;
+  margin-right: auto;
 }
 .contract-preview {
   font-family: 'Frank Ruhl Libre', Arial, sans-serif !important;
@@ -271,8 +307,8 @@ input::placeholder, textarea::placeholder, select::placeholder {
 .action-btn {
   padding: 10px 22px;
   font-size: 1.05rem;
-  background: var(--contract-blue);
-  color: #fff;
+  background: #38E18E;
+  color: #281D57;
   border: none;
   border-radius: 6px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.07);
@@ -280,9 +316,9 @@ input::placeholder, textarea::placeholder, select::placeholder {
   transition: background 0.2s;
   font-family: var(--contract-font);
 }
-.action-btn:hover { background: var(--contract-blue-dark); }
-.action-btn.pdf { background: #fff; color: var(--contract-blue); border: 2px solid var(--contract-blue); }
-.action-btn.pdf:hover { background: var(--contract-blue); color: #fff; }
+.action-btn:hover { background: #2bc77a; }
+.action-btn.pdf { background: #fff; color: #38E18E; border: 2px solid #38E18E; }
+.action-btn.pdf:hover { background: #38E18E; color: #281D57; }
 .clause-level-1, .clause-level-2, .clause-level-3 {
   display: block;
   margin-bottom: 0.2em;
@@ -312,10 +348,8 @@ input::placeholder, textarea::placeholder, select::placeholder {
 @media (max-width: 600px) {
   main, .max-w-xl, .max-w-2xl, .bg-white, .rounded-xl, .shadow-lg, .p-8, .p-6, .p-4 {
     max-width: 100vw !important;
-    width: 100vw !important;
     border-radius: 0 !important;
     box-shadow: none !important;
-    padding: 12px !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
   }
@@ -330,12 +364,14 @@ input::placeholder, textarea::placeholder, select::placeholder {
     margin-right: 0 !important;
   }
   .stepper, .fixed.top-0.left-0.w-full {
-    border-radius: 0 0 12px 12px !important;
     padding: 8px 2px !important;
     min-height: 36px !important;
   }
-  .flex, .flex-col, .flex-row {
-    flex-direction: column !important;
+  /* Only force row direction for specific header and navigation elements */
+  .fixed.top-0.left-0.w-full.z-30 .flex,
+  .stepper .flex,
+  .mobile-sticky-bottom-bar .flex {
+    flex-direction: row !important;
     gap: 8px !important;
   }
   /* Force group buttons to row direction on mobile */
@@ -355,8 +391,10 @@ input::placeholder, textarea::placeholder, select::placeholder {
     box-sizing: border-box !important;
     display: inline-flex !important;
   }
-  .items-center, .items-end, .items-start {
-    align-items: stretch !important;
+  /* Keep step icons centered */
+  .flex.items-center.justify-center.w-6.h-6.rounded-full,
+  .flex.items-center.justify-center.transition-all.duration-200.font-bold.select-none {
+    align-items: center !important;
   }
   .text-xl, .text-lg, .text-base {
     font-size: 1rem !important;
@@ -395,6 +433,13 @@ input::placeholder, textarea::placeholder, select::placeholder {
     max-width: 80vw !important;
     height: auto !important;
   }
+  
+  /* Override general img rules for logo specifically */
+  img[src="/logo.svg"] {
+    max-width: 100px !important;
+    height: 20px !important;
+    width: 100px !important;
+  }
   /* Fix hardcoded widths in inline styles */
   [style*="width: 404px"] {
     width: 100% !important;
@@ -415,6 +460,275 @@ input::placeholder, textarea::placeholder, select::placeholder {
   .fixed.top-0.left-0.w-full.z-30.flex.justify-center.items-center {
     display: flex !important;
   }
+  
+  /* Ensure mobile header takes full width */
+  .fixed.top-0.left-0.w-full.z-30 {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    left: 0 !important;
+    right: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  
+  /* Override any body/html margins that might cause gaps */
+  body, html {
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+  
+  /* Ensure no horizontal scrollbar */
+  .fixed.top-0.left-0.w-full.z-30 {
+    overflow-x: hidden !important;
+  }
+  
+  /* Ensure mobile header logo is visible */
+  .fixed.top-0.left-0.w-full.z-30 img[src="/logo.svg"] {
+    display: block !important;
+    width: 100px !important;
+    height: 20px !important;
+    max-width: 100px !important;
+    max-height: 20px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  
+  /* Override any image rules that might hide the logo */
+  .fixed.top-0.left-0.w-full.z-30 .flex img[src="/logo.svg"] {
+    display: block !important;
+    width: 100px !important;
+    height: 20px !important;
+    max-width: 100px !important;
+    max-height: 20px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+  
+  /* Set consistent padding for property details step */
+  .mobile-content-container .mobile-step-content {
+    padding: 16px !important;
+    margin: 0 !important;
+  }
+  
+  /* Ensure form content takes full width with proper padding */
+  .mobile-content-container .mobile-step-content form {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Preserve padding for step title, subtitle, and image containers */
+  .mobile-content-container .mobile-step-content > div:not(form) {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Set proper spacing for form fields container */
+  .space-y-2 {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+  
+  /* Ensure input fields take full width with proper spacing */
+  .space-y-2 > div {
+    padding: 0 !important;
+    margin-bottom: 20px !important;
+    width: 100% !important;
+  }
+  
+  /* Set proper spacing for form field containers */
+  .space-y-2 > div > div {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+  
+  /* Ensure labels and inputs take full width */
+  .space-y-2 label,
+  .space-y-2 input,
+  .space-y-2 select,
+  .space-y-2 textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+  
+  /* Ensure proper padding for all form fields */
+  .mobile-content-container .mobile-step-content .space-y-2 {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  
+  /* Ensure proper spacing for form field containers */
+  .mobile-content-container .mobile-step-content .space-y-2 > div {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}
+
+@media (width <= 600px) {
+  /* Ensure white background on mobile */
+  body, html {
+    background: #ffffff !important;
+    color: #171717 !important;
+  }
+  
+  /* Remove height restrictions and box styling for contract container on mobile */
+  .contract-container {
+    min-height: auto !important;
+    max-height: none !important;
+    padding: 0 !important;
+    margin-bottom: 0 !important;
+    height: auto !important;
+  }
+  
+  /* Remove box styling and height restrictions for inner contract preview on mobile */
+  .contract-container > div {
+    height: auto !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    margin-bottom: 0 !important;
+    transform: none !important;
+  }
+  
+  /* Remove height restrictions and box styling for page content on mobile */
+  .contract-container .page {
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+    padding: 24px 16px 0 16px !important;
+    margin-bottom: 0 !important;
+    overflow: visible !important;
+    font-size: 0.525rem !important;
+    line-height: 1.85 !important;
+  }
+  
+  /* Make contract text smaller on mobile */
+  .contract-container .contract-title,
+  .contract-container .page .contract-title {
+    font-size: 1.5rem !important;
+    margin-bottom: 12px !important;
+  }
+  
+  .contract-container .contract-subtitle,
+  .contract-container .page .contract-subtitle {
+    font-size: 1rem !important;
+    margin-bottom: 12px !important;
+  }
+  
+  .contract-container .contract-date-row,
+  .contract-container .page .contract-date-row {
+    font-size: 0.7rem !important;
+    margin-bottom: 16px !important;
+  }
+  
+  .contract-container .contract-preview,
+  .contract-container .page .contract-preview {
+    font-size: 1rem !important;
+    line-height: 1.8 !important;
+  }
+  
+  /* Override inline styles */
+  .contract-container .page [style*="font-size"] {
+    font-size: 1rem !important;
+  }
+  
+  .contract-container .page [style*="font-size: 1.08rem"] {
+    font-size: 1rem !important;
+  }
+  
+  /* Reset contract text to normal weight */
+  .contract-container .contract-preview div {
+    font-weight: 400 !important;
+  }
+  
+  /* Add padding to PayPal container on mobile */
+  .mb-4.text-center {
+    padding: 16px !important;
+  }
+  
+  /* Add padding to green payment info box on mobile */
+  div[style*="background: #F3FBF6"] {
+    padding: 24px 16px !important;
+    margin: 16px 0 !important;
+  }
+  
+  /* Fix contract container height and spacing issues */
+  .contract-container.mb-8 {
+    min-height: auto !important;
+    height: auto !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  .contract-container.mb-8 > div {
+    height: auto !important;
+    min-height: auto !important;
+    transform: scale(0.7) !important;
+    transform-origin: top center !important;
+  }
+  
+  .contract-container.mb-8 .page {
+    height: auto !important;
+    min-height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  /* Fix contract container for desktop as well */
+  @media (min-width: 601px) {
+    .contract-container.mb-8 {
+      min-height: auto !important;
+      height: auto !important;
+      margin-bottom: 1rem !important;
+    }
+    
+    .contract-container.mb-8 > div {
+      height: auto !important;
+      min-height: auto !important;
+      transform: scale(0.8) !important;
+      transform-origin: top center !important;
+    }
+    
+    .contract-container.mb-8 .page {
+      height: auto !important;
+      min-height: auto !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+  }
+  
+  /* Override base contract-container styles for payment step */
+  .contract-container {
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: auto !important;
+  }
+  
+  /* Add padding to back button below PayPal on mobile */
+  button[class*="w-full py-3 rounded-lg font-bold text-lg mt-2 bg-gray-200"] {
+    margin: 16px !important;
+    width: calc(100% - 32px) !important;
+    max-width: calc(100vw - 32px) !important;
+  }
+  
+  .mobile-content-container .mobile-step-content .space-y-2, 
+  .mobile-content-container .mobile-step-content .space-y-2 > div {
+    padding: 8px !important;
+  }
   /* Stepper step items */
   .flex.flex-col.items-center.min-w-\[40px\].mx-1.cursor-pointer {
     min-width: 60px !important;
@@ -431,6 +745,14 @@ input::placeholder, textarea::placeholder, select::placeholder {
     box-sizing: border-box !important;
     color: #222 !important;
     background: #fff !important;
+  }
+  /* Override for checkboxes to maintain their intended size */
+  input[type="checkbox"] {
+    width: 20px !important;
+    height: 20px !important;
+    padding: 0 !important;
+    min-width: 20px !important;
+    max-width: 20px !important;
   }
   button {
     font-size: 1rem !important;
@@ -466,13 +788,75 @@ input::placeholder, textarea::placeholder, select::placeholder {
     background: #fff;
     z-index: 100;
     box-shadow: 0 -2px 12px rgba(0,0,0,0.07);
-    padding: 12px 16px 20px 16px !important;
+    padding: 12px 16px 0 16px !important;
     display: flex !important;
     gap: 8px !important;
     border-top: 1.5px solid #E0E7EF;
+    height: 60px !important;
+    box-sizing: border-box !important;
   }
+  
+  /* Hide mobile bottom bar when steps menu is open */
+  .mobile-sticky-bottom-bar.hidden {
+    display: none !important;
+  }
+  
+  /* Ensure consistent bottom spacing for all mobile content */
   .mobile-bottom-padding {
-    padding-bottom: 80px !important;
+    padding-bottom: 4px !important;
+  }
+  
+  /* Add consistent bottom spacing to main content area on mobile */
+  main {
+    padding-bottom: 4px !important;
+  }
+  
+  /* Smooth transitions to prevent jumping */
+  .motion-div {
+    transition: all 0.3s ease-in-out !important;
+  }
+  
+  /* Ensure consistent height for mobile content */
+  .mobile-content-container {
+    min-height: auto !important;
+    transition: min-height 0.3s ease-in-out !important;
+    overflow-y: visible !important;
+  }
+  
+  /* Prevent layout shifts during transitions */
+  .mobile-sticky-bottom-bar {
+    will-change: transform !important;
+    transform: translateZ(0) !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+  
+  /* Ensure consistent spacing for all mobile steps */
+  .mobile-step-content {
+    padding-bottom: 4px !important;
+    min-height: auto !important;
+    overflow-y: visible !important;
+  }
+  
+  /* Ensure step title, subtitle, and image have proper padding */
+  .mobile-step-content > div:first-child .flex.flex-col.items-center.w-full {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+  
+  /* Ensure smooth scrolling */
+  html {
+    scroll-behavior: smooth !important;
+  }
+  
+  body {
+    scroll-behavior: smooth !important;
+  }
+  
+  /* Ensure smooth transitions without jumping */
+  .motion-div {
+    transform: translateZ(0) !important;
+    backface-visibility: hidden !important;
   }
   .apartment-features-group {
     width: 100% !important;
@@ -495,10 +879,9 @@ input::placeholder, textarea::placeholder, select::placeholder {
     margin: 12px 0 0 0 !important;
     box-sizing: border-box !important;
   }
-  /* Only fix the summary step green card padding for mobile */
-  .summary-green-card {
-    padding-left: 8px !important;
-    padding-right: 8px !important;
+  /* Fix the summary step green card padding for mobile */
+  .summary-green-card.p-6 {
+    padding: 24px 16px !important;
   }
 }
 
@@ -511,20 +894,9 @@ input::placeholder, textarea::placeholder, select::placeholder {
   }
 }
 
-@media (max-width: 400px) {
-  main, .max-w-xl, .max-w-2xl, .bg-white, .rounded-xl, .shadow-lg, .p-8, .p-6, .p-4 {
-    padding: 6px !important;
-  }
-  .text-xl, .text-lg, .text-base {
-    font-size: 0.95rem !important;
-  }
-  .text-sm, .text-xs {
-    font-size: 0.85rem !important;
-  }
-  img {
-    max-width: 95vw !important;
-  }
-}
+
+
+
 
 input, select, textarea {
   color: #222 !important;
