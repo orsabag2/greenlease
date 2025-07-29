@@ -13,13 +13,28 @@ const SignInPage: React.FC = () => {
       return;
     }
 
+    console.log('Starting Google sign-in...');
+    console.log('Current domain:', window.location.hostname);
+    console.log('Firebase auth domain:', auth.config.authDomain);
+
     try {
       const result = await signInWithPopup(auth, googleProvider);
       const user = result.user;
       console.log('Signed in user:', user);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Google sign-in error:', error);
-      alert('Google sign-in failed.');
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      
+      if (error.code === 'auth/popup-closed-by-user') {
+        alert('החלון נסגר. אנא נסה שוב.');
+      } else if (error.code === 'auth/popup-blocked') {
+        alert('החלון נחסם על ידי הדפדפן. אנא אפשר חלונות קופצים עבור האתר הזה.');
+      } else if (error.code === 'auth/unauthorized-domain') {
+        alert('הדומיין לא מורשה. אנא בדוק את הגדרות Firebase.');
+      } else {
+        alert(`שגיאה בהתחברות: ${error.message}`);
+      }
     }
   };
 
