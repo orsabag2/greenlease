@@ -6,7 +6,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyDetmgUsuXFd5S-b4-3CoUluh32WdRFvcI",
   authDomain: typeof window !== 'undefined' && window.location.hostname === 'localhost' 
     ? "lease-18ed6.firebaseapp.com" 
-    : "greenlease.me",
+    : "auth.greenlease.me",
   projectId: "lease-18ed6",
   messagingSenderId: "740646580319",
   appId: "1:740646580319:web:ec51ad8ecd4e887471abea",
