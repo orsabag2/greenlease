@@ -19,6 +19,7 @@ export const googleProvider = new GoogleAuthProvider();
 
 googleProvider.addScope('openid');
 googleProvider.addScope('email');
-googleProvider.setCustomParameters({
-  redirect_uri: 'https://greenlease.me/api/auth/callback'
-}); 
+// Remove custom redirect URI to let Firebase handle it automatically
+// googleProvider.setCustomParameters({
+//   redirect_uri: 'https://greenlease.me/api/auth/callback'
+// }); 
