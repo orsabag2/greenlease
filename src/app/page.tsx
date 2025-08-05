@@ -1725,24 +1725,24 @@ export default function HomePage() {
           </div>
         )}
           <Stepper currentStep={step} showSignInModal={showSignInModal} />
-                        <main className="flex flex-col items-center min-h-screen" style={{ 
-                          paddingTop: 0,
-                          paddingBottom: isMobile ? 4 : 0,
-                          background: isMobile ? '#fff' : '#F8F8FC',
-                          minHeight: '100vh',
-                          overflowY: 'auto'
-                        }} dir="rtl">
-                          {isLoading && (
-                            <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
-                              <div className="text-center">
-                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#38E18E] mx-auto"></div>
-                                <p className="mt-4 text-gray-600" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-                                  טוען...
-                                </p>
-                              </div>
-                            </div>
-                          )}
           {user && (
+            <main className="flex flex-col items-center min-h-screen" style={{ 
+              paddingTop: 0,
+              paddingBottom: isMobile ? 4 : 0,
+              background: isMobile ? '#fff' : '#F8F8FC',
+              minHeight: '100vh',
+              overflowY: 'auto'
+            }} dir="rtl">
+              {isLoading && (
+                <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#38E18E] mx-auto"></div>
+                    <p className="mt-4 text-gray-600" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                      טוען...
+                    </p>
+                  </div>
+                </div>
+              )}
             <AnimatePresence mode="wait">
               <motion.div
                 key={step}
@@ -2460,8 +2460,8 @@ export default function HomePage() {
                 </div>
               </motion.div>
             </AnimatePresence>
+            </main>
           )}
-      </main>
     </div>
   );
 }
