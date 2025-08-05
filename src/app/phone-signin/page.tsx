@@ -14,9 +14,9 @@ const PhoneSignInPage: React.FC = () => {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user: User | null) => {
       if (user) {
-        console.log('✅ User authenticated, redirecting to landlord details collection');
-        // Redirect to landlord details collection page instead of main app
-        router.push('/landlord-details');
+        console.log('✅ User authenticated, redirecting to main app');
+        // Redirect directly to main app
+        router.push('/');
       }
     });
 

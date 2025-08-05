@@ -31,7 +31,7 @@ if (typeof window !== 'undefined' && window.location.hostname === 'greenlease.me
   });
 } 
 
-// Helper function to initialize reCAPTCHA for phone auth
+// Helper function to initialize reCAPTCHA for phone auth with improved settings
 export const initializeRecaptcha = (containerId: string) => {
   if (typeof window === 'undefined') return null;
   
@@ -49,7 +49,10 @@ export const initializeRecaptcha = (containerId: string) => {
       },
       'expired-callback': () => {
         console.log('reCAPTCHA expired');
-      }
+      },
+      // Add additional parameters to make reCAPTCHA less aggressive
+      'badge': 'bottomright',
+      'isolated': true
     });
   } catch (error) {
     console.error('Failed to initialize reCAPTCHA:', error);

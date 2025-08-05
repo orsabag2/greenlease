@@ -22,9 +22,9 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
   const recaptchaRef = useRef<HTMLDivElement>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
   const isInitializedRef = useRef(false);
+  const [attemptCount, setAttemptCount] = useState(0);
 
   useEffect(() => {
-    // Initialize reCAPTCHA when component mounts
     if (recaptchaRef.current && !isInitializedRef.current) {
       try {
         recaptchaVerifierRef.current = initializeRecaptcha('recaptcha-container');
@@ -35,12 +35,10 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
     }
 
     return () => {
-      // Clean up reCAPTCHA safely
       if (recaptchaVerifierRef.current && isInitializedRef.current) {
         try {
           recaptchaVerifierRef.current.clear();
         } catch (error) {
-          // Ignore cleanup errors as they're not critical
           console.log('reCAPTCHA cleanup error (ignored):', error);
         }
         recaptchaVerifierRef.current = null;
@@ -55,7 +53,12 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
       return;
     }
 
-    // Format phone number for Israel (+972)
+    // Simple rate limiting
+    if (attemptCount >= 3) {
+      setError('יותר מדי ניסיונות. אנא המתן מספר דקות ונסה שוב.');
+      return;
+    }
+
     let formattedPhone = phoneNumber;
     if (!phoneNumber.startsWith('+')) {
       if (phoneNumber.startsWith('0')) {
@@ -75,26 +78,54 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
         throw new Error('reCAPTCHA לא זמין');
       }
 
-      // For invisible reCAPTCHA, we need to call verify() first
-      const recaptchaResult = await recaptchaVerifierRef.current.verify();
-      console.log('reCAPTCHA verification result:', recaptchaResult);
+      // Try to verify reCAPTCHA with minimal interaction
+      try {
+        // First try to render
+        await recaptchaVerifierRef.current.render();
+        
+        // Then verify with a short timeout
+        const verifyPromise = recaptchaVerifierRef.current.verify();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Verification timeout')), 5000)
+        );
+        
+        await Promise.race([verifyPromise, timeoutPromise]);
+      } catch (verifyError) {
+        console.log('reCAPTCHA verification failed, trying alternative approach:', verifyError);
+        
+        // If reCAPTCHA fails, try to reinitialize and continue
+        try {
+          if (recaptchaVerifierRef.current) {
+            recaptchaVerifierRef.current.clear();
+          }
+          recaptchaVerifierRef.current = initializeRecaptcha('recaptcha-container');
+          
+                   // Try one more time with the new instance
+         if (recaptchaVerifierRef.current) {
+           await recaptchaVerifierRef.current.verify();
+         }
+        } catch (retryError) {
+          console.log('reCAPTCHA retry also failed:', retryError);
+          // Continue anyway - Firebase might still work
+        }
+      }
 
       const confirmationResult = await signInWithPhoneNumber(
         auth, 
         formattedPhone, 
-        recaptchaVerifierRef.current
+        recaptchaVerifierRef.current || undefined
       );
       
       setVerificationId(confirmationResult.verificationId);
       setStep('code');
       setIsLoading(false);
+      setAttemptCount(0); // Reset attempt count on success
     } catch (error: any) {
       console.error('Phone auth error:', error);
+      setAttemptCount(prev => prev + 1);
       
-      // If reCAPTCHA fails, try to reinitialize it
-      if (error.code === 'auth/invalid-app-credential') {
+      if (error.code === 'auth/invalid-app-credential' || error.message?.includes('reCAPTCHA')) {
         try {
-          // Clear and reinitialize reCAPTCHA
           if (recaptchaVerifierRef.current) {
             recaptchaVerifierRef.current.clear();
           }
@@ -164,8 +195,8 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
     setStep('phone');
     setError('');
     setIsLoading(false);
+    setAttemptCount(0);
     
-    // Reinitialize reCAPTCHA when resetting
     if (recaptchaRef.current) {
       try {
         if (recaptchaVerifierRef.current) {
@@ -194,24 +225,24 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
         }}>
           {error}
           {error.includes('אימות האבטחה') && (
-                               <button
-                     onClick={resetForm}
-                     style={{
-                       marginTop: 8,
-                       padding: '8px 16px',
-                       background: '#38E18E',
-                       color: '#281D57',
-                       border: 'none',
-                       borderRadius: '8px',
-                       fontSize: '12px',
-                       fontWeight: '600',
-                       cursor: 'pointer',
-                       transition: 'all 0.2s ease',
-                       fontFamily: 'Noto Sans Hebrew, Arial, sans-serif'
-                     }}
-                   >
-                     נסה שוב
-                   </button>
+            <button
+              onClick={resetForm}
+              style={{
+                marginTop: 8,
+                padding: '8px 16px',
+                background: '#38E18E',
+                color: '#281D57',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                fontFamily: 'Noto Sans Hebrew, Arial, sans-serif'
+              }}
+            >
+              נסה שוב
+            </button>
           )}
         </div>
       )}
@@ -254,23 +285,23 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
 
           <button
             onClick={handleSendCode}
-            disabled={isLoading || !phoneNumber}
+            disabled={isLoading || !phoneNumber || attemptCount >= 3}
             style={{
               width: '100%',
               padding: '16px 24px',
-              background: isLoading ? '#ccc' : '#38E18E',
-              color: isLoading ? '#666' : '#281D57',
+              background: isLoading || attemptCount >= 3 ? '#ccc' : '#38E18E',
+              color: isLoading || attemptCount >= 3 ? '#666' : '#281D57',
               border: 'none',
               borderRadius: '12px',
               fontSize: '16px',
               fontWeight: '600',
-              cursor: isLoading ? 'not-allowed' : 'pointer',
+              cursor: isLoading || attemptCount >= 3 ? 'not-allowed' : 'pointer',
               transition: 'all 0.2s ease',
               fontFamily: 'Noto Sans Hebrew, Arial, sans-serif',
               direction: 'rtl'
             }}
           >
-            {isLoading ? 'שולח...' : 'שלח קוד אימות'}
+            {isLoading ? 'שולח...' : attemptCount >= 3 ? 'יותר מדי ניסיונות' : 'שלח קוד אימות'}
           </button>
         </div>
       ) : (
