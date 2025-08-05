@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../utils/firebase';
 import Link from 'next/link';
-import PhoneSignIn from './PhoneSignIn';
+import { useRouter } from 'next/navigation';
 
 const SignInPage: React.FC = () => {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
-  const [authMethod, setAuthMethod] = useState<'gmail' | 'phone'>('gmail');
+  const router = useRouter();
 
   const handleGmailSignIn = async () => {
     if (!termsAccepted || !disclaimerAccepted) {
@@ -48,13 +48,12 @@ const SignInPage: React.FC = () => {
     }
   };
 
-  const handlePhoneSignInSuccess = (user: any) => {
-    console.log('✅ Phone sign-in successful!');
-    console.log('Signed in user:', user);
-  };
-
-  const handlePhoneSignInError = (error: any) => {
-    console.error('❌ Phone sign-in error:', error);
+  const handlePhoneSignIn = () => {
+    if (!termsAccepted || !disclaimerAccepted) {
+      alert('עליך לאשר את תנאי השימוש והמדיניות הפרטיות כדי להמשיך');
+      return;
+    }
+    router.push('/phone-signin');
   };
 
   const isButtonDisabled = !termsAccepted || !disclaimerAccepted;
@@ -273,52 +272,9 @@ const SignInPage: React.FC = () => {
           </label>
         </div>
 
-        {/* Authentication Method Tabs */}
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{
-            display: 'flex',
-            borderBottom: '2px solid #E5E7EB',
-            marginBottom: '24px'
-          }}>
-            <button
-              onClick={() => setAuthMethod('gmail')}
-              style={{
-                flex: 1,
-                padding: '12px 16px',
-                background: 'transparent',
-                border: 'none',
-                borderBottom: authMethod === 'gmail' ? '2px solid #4A1D96' : '2px solid transparent',
-                color: authMethod === 'gmail' ? '#4A1D96' : '#666',
-                fontSize: '16px',
-                fontWeight: authMethod === 'gmail' ? '600' : '400',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              Gmail
-            </button>
-            <button
-              onClick={() => setAuthMethod('phone')}
-              style={{
-                flex: 1,
-                padding: '12px 16px',
-                background: 'transparent',
-                border: 'none',
-                borderBottom: authMethod === 'phone' ? '2px solid #4A1D96' : '2px solid transparent',
-                color: authMethod === 'phone' ? '#4A1D96' : '#666',
-                fontSize: '16px',
-                fontWeight: authMethod === 'phone' ? '600' : '400',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              טלפון
-            </button>
-          </div>
-        </div>
-
-        {/* Authentication Content */}
-        {authMethod === 'gmail' ? (
+        {/* Authentication Buttons */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Gmail Button */}
           <button
             onClick={handleGmailSignIn}
             disabled={isButtonDisabled}
@@ -349,19 +305,36 @@ const SignInPage: React.FC = () => {
               <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
             </svg>
           </button>
-        ) : (
-          <div style={{
-            border: '2px solid #E5E7EB',
-            borderRadius: '12px',
-            padding: '24px',
-            background: '#fff'
-          }}>
-            <PhoneSignIn 
-              onSuccess={handlePhoneSignInSuccess}
-              onError={handlePhoneSignInError}
-            />
-          </div>
-        )}
+
+          {/* Phone Button */}
+          <button
+            onClick={handlePhoneSignIn}
+            disabled={isButtonDisabled}
+            style={{
+              width: '100%',
+              padding: '16px 24px',
+              border: '2px solid #E5E7EB',
+              borderRadius: '12px',
+              background: isButtonDisabled ? '#F3F4F6' : '#fff',
+              color: isButtonDisabled ? '#9CA3AF' : '#000',
+              fontSize: '16px',
+              fontWeight: 500,
+              cursor: isButtonDisabled ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              transition: 'all 0.2s ease',
+              fontFamily: 'Noto Sans Hebrew, Arial, sans-serif',
+              direction: 'rtl'
+            }}
+          >
+            <span style={{ direction: 'rtl' }}>התחבר עם טלפון</span>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+              <path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z" fill="#4A1D96"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );

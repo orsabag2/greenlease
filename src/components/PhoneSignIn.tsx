@@ -188,16 +188,6 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
       maxWidth: 400,
       width: '100%'
     }}>
-      <h2 style={{
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 20,
-        textAlign: 'center',
-        color: '#333'
-      }}>
-        התחברות עם טלפון
-      </h2>
-
       {error && (
         <div style={{
           background: '#fee',
