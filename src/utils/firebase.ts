@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, RecaptchaVerifier } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDetmgUsuXFd5S-b4-3CoUluh32WdRFvcI",
@@ -30,3 +30,23 @@ if (typeof window !== 'undefined' && window.location.hostname === 'greenlease.me
     login_hint: 'greenlease.me'
   });
 } 
+
+// Helper function to initialize reCAPTCHA for phone auth
+export const initializeRecaptcha = (containerId: string) => {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    return new RecaptchaVerifier(auth, containerId, {
+      size: 'normal',
+      callback: () => {
+        console.log('reCAPTCHA solved');
+      },
+      'expired-callback': () => {
+        console.log('reCAPTCHA expired');
+      }
+    });
+  } catch (error) {
+    console.error('Failed to initialize reCAPTCHA:', error);
+    return null;
+  }
+}; 

@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../utils/firebase';
 import Link from 'next/link';
+import PhoneSignIn from './PhoneSignIn';
 
 const SignInPage: React.FC = () => {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
+  const [authMethod, setAuthMethod] = useState<'gmail' | 'phone'>('gmail');
 
-  const handleSignIn = async () => {
+  const handleGmailSignIn = async () => {
     if (!termsAccepted || !disclaimerAccepted) {
       alert('עליך לאשר את תנאי השימוש והמדיניות הפרטיות כדי להמשיך');
       return;
@@ -44,6 +46,15 @@ const SignInPage: React.FC = () => {
         alert(`שגיאה בהתחברות: ${error.message}`);
       }
     }
+  };
+
+  const handlePhoneSignInSuccess = (user: any) => {
+    console.log('✅ Phone sign-in successful!');
+    console.log('Signed in user:', user);
+  };
+
+  const handlePhoneSignInError = (error: any) => {
+    console.error('❌ Phone sign-in error:', error);
   };
 
   const isButtonDisabled = !termsAccepted || !disclaimerAccepted;
@@ -262,37 +273,95 @@ const SignInPage: React.FC = () => {
           </label>
         </div>
 
-        {/* Sign In Button */}
-        <button
-          onClick={handleSignIn}
-          disabled={isButtonDisabled}
-          style={{
-            width: '100%',
-            padding: '16px 24px',
+        {/* Authentication Method Tabs */}
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{
+            display: 'flex',
+            borderBottom: '2px solid #E5E7EB',
+            marginBottom: '24px'
+          }}>
+            <button
+              onClick={() => setAuthMethod('gmail')}
+              style={{
+                flex: 1,
+                padding: '12px 16px',
+                background: 'transparent',
+                border: 'none',
+                borderBottom: authMethod === 'gmail' ? '2px solid #4A1D96' : '2px solid transparent',
+                color: authMethod === 'gmail' ? '#4A1D96' : '#666',
+                fontSize: '16px',
+                fontWeight: authMethod === 'gmail' ? '600' : '400',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Gmail
+            </button>
+            <button
+              onClick={() => setAuthMethod('phone')}
+              style={{
+                flex: 1,
+                padding: '12px 16px',
+                background: 'transparent',
+                border: 'none',
+                borderBottom: authMethod === 'phone' ? '2px solid #4A1D96' : '2px solid transparent',
+                color: authMethod === 'phone' ? '#4A1D96' : '#666',
+                fontSize: '16px',
+                fontWeight: authMethod === 'phone' ? '600' : '400',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              טלפון
+            </button>
+          </div>
+        </div>
+
+        {/* Authentication Content */}
+        {authMethod === 'gmail' ? (
+          <button
+            onClick={handleGmailSignIn}
+            disabled={isButtonDisabled}
+            style={{
+              width: '100%',
+              padding: '16px 24px',
+              border: '2px solid #E5E7EB',
+              borderRadius: '12px',
+              background: isButtonDisabled ? '#F3F4F6' : '#fff',
+              color: isButtonDisabled ? '#9CA3AF' : '#000',
+              fontSize: '16px',
+              fontWeight: 500,
+              cursor: isButtonDisabled ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '12px',
+              transition: 'all 0.2s ease',
+              fontFamily: 'Noto Sans Hebrew, Arial, sans-serif',
+              direction: 'rtl'
+            }}
+          >
+            <span style={{ direction: 'rtl' }}>התחבר עם Gmail</span>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+          </button>
+        ) : (
+          <div style={{
             border: '2px solid #E5E7EB',
             borderRadius: '12px',
-            background: isButtonDisabled ? '#F3F4F6' : '#fff',
-            color: isButtonDisabled ? '#9CA3AF' : '#000',
-            fontSize: '16px',
-            fontWeight: 500,
-            cursor: isButtonDisabled ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '12px',
-            transition: 'all 0.2s ease',
-            fontFamily: 'Noto Sans Hebrew, Arial, sans-serif',
-            direction: 'rtl'
-          }}
-        >
-          <span style={{ direction: 'rtl' }}>התחבר עם Gmail</span>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-          </svg>
-        </button>
+            padding: '24px',
+            background: '#fff'
+          }}>
+            <PhoneSignIn 
+              onSuccess={handlePhoneSignInSuccess}
+              onError={handlePhoneSignInError}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
