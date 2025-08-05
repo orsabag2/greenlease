@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import PhoneSignIn from '../../components/PhoneSignIn';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -9,6 +9,19 @@ import type { User } from 'firebase/auth';
 
 const PhoneSignInPage: React.FC = () => {
   const router = useRouter();
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 600);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Listen for authentication state changes
   useEffect(() => {
@@ -43,7 +56,7 @@ const PhoneSignInPage: React.FC = () => {
       <header style={{
         background: '#fff',
         borderBottom: '1px solid #E5E7EB',
-        padding: '16px 20px',
+        padding: isMobile ? '16px 20px' : '20px 20px',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center'
@@ -57,8 +70,8 @@ const PhoneSignInPage: React.FC = () => {
             src="/logo.svg" 
             alt="GreenLease" 
             style={{ 
-              width: '120px', 
-              height: '24px' 
+              width: isMobile ? '120px' : '200px', 
+              height: isMobile ? '24px' : '32px' 
             }} 
           />
         </div>
@@ -70,7 +83,7 @@ const PhoneSignInPage: React.FC = () => {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        minHeight: 'calc(100vh - 80px)',
+        minHeight: isMobile ? 'calc(100vh - 80px)' : 'calc(100vh - 100px)',
         padding: '40px 20px',
         direction: 'rtl'
       }}>
