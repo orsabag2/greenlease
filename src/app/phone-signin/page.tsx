@@ -49,7 +49,7 @@ const PhoneSignInPage: React.FC = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      background: '#F8F8FC',
+      background: 'rgb(248, 248, 252) !important',
       direction: 'rtl'
     }}>
       {/* Header */}

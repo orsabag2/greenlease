@@ -66,7 +66,7 @@ const SignInPage: React.FC = () => {
       justifyContent: 'center',
       minHeight: 'calc(100vh - 120px)',
       padding: '40px 20px',
-      background: '#F8F8FC',
+      background: 'rgb(248, 248, 252) !important',
       direction: 'rtl'
     }}>
       {/* Main Content Card */}
