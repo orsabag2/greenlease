@@ -49,9 +49,9 @@ const PhoneSignInPage: React.FC = () => {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'rgb(248, 248, 252) !important',
+      background: 'rgb(248, 248, 252)',
       direction: 'rtl'
-    }}>
+    }} className="phone-login-page-container">
       {/* Header */}
       <header style={{
         background: '#fff',

@@ -66,9 +66,9 @@ const SignInPage: React.FC = () => {
       justifyContent: 'center',
       minHeight: 'calc(100vh - 120px)',
       padding: '40px 20px',
-      background: 'rgb(248, 248, 252) !important',
+      background: 'rgb(248, 248, 252)',
       direction: 'rtl'
-    }}>
+    }} className="login-page-container">
       {/* Main Content Card */}
       <div style={{
         background: '#fff',

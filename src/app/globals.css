@@ -43,6 +43,12 @@
     --background: #0a0a0a;
     --foreground: #ededed;
   }
+  
+  /* Override dark mode for login pages */
+  .login-page-container,
+  .phone-login-page-container {
+    background: rgb(248, 248, 252) !important;
+  }
 }
 
 /* Override dark mode for small screens */
