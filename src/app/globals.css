@@ -40,11 +40,18 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: rgb(248, 248, 252);
-    --foreground: #171717;
+    --background: #0a0a0a;
+    --foreground: #ededed;
   }
   
-  /* Override dark mode for login pages */
+  /* Override dark mode for sign-in page only */
+  body:has(.login-page-container),
+  body:has(.phone-login-page-container) {
+    --background: rgb(248, 248, 252) !important;
+    --foreground: #171717 !important;
+  }
+  
+  /* Fallback for browsers that don't support :has() */
   .login-page-container,
   .phone-login-page-container {
     background: rgb(248, 248, 252) !important;
