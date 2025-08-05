@@ -1,14 +1,31 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import PhoneSignIn from '../../components/PhoneSignIn';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { auth } from '../../utils/firebase';
+import type { User } from 'firebase/auth';
 
 const PhoneSignInPage: React.FC = () => {
+  const router = useRouter();
+
+  // Listen for authentication state changes
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user: User | null) => {
+      if (user) {
+        console.log('✅ User authenticated, redirecting to main app');
+        router.push('/');
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
   const handlePhoneSignInSuccess = (user: any) => {
     console.log('✅ Phone sign-in successful!');
     console.log('Signed in user:', user);
-    // You can add navigation logic here if needed
+    // The redirect will happen automatically via onAuthStateChanged
   };
 
   const handlePhoneSignInError = (error: any) => {
