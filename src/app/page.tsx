@@ -759,48 +759,12 @@ export default function HomePage() {
 
     // Show loading state or prevent hydration mismatch by not rendering until mounted
     if (!mounted || isLoading) {
-      return (
-        <div className="fixed top-0 left-0 w-full z-30 flex justify-center items-center py-2 px-4 bg-white" style={{ borderBottom: '1.5px solid #E0E7EF', borderRadius: '0 0 18px 18px', minHeight: '48px', top: isEditingPaidContract ? '32px' : '0px' }}>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center',
-            flexShrink: 0 
-          }}>
-            <img src="/logo.svg" alt="GreenLease" style={{ width: '120px', height: '24px' }} />
-          </div>
-        </div>
-      );
+      return null;
     }
 
-    // Mobile: show logo and hamburger menu when sign-in modal is active
-    if (isMobile && showSignInModal) {
-      return (
-        <div className="fixed top-0 left-0 w-full z-30 flex justify-center items-center py-2 px-4 bg-white" style={{ borderBottom: '1.5px solid #E0E7EF', borderRadius: '0 0 18px 18px', minHeight: '48px', top: isEditingPaidContract ? '32px' : '0px' }}>
-          {/* Logo for mobile */}
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center',
-            flexShrink: 0 
-          }}>
-            <img src="/logo.svg" alt="GreenLease" style={{ width: '120px', height: '24px' }} />
-          </div>
-        </div>
-      );
-    }
-
-    // Show only logo when sign-in modal is active (desktop)
+    // No header when sign-in modal is active
     if (showSignInModal) {
-      return (
-        <div className="fixed top-0 left-0 w-full z-30 flex justify-center items-center pt-5 px-2 bg-white" style={{ borderBottom: '1.5px solid #E0E7EF', borderRadius: '0 0 18px 18px', minHeight: '48px', paddingBottom: 16, top: isEditingPaidContract ? '40px' : '0px' }}>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            flexShrink: 0 
-          }}>
-            <img src="/logo.svg" alt="GreenLease" style={{ width: '200px', height: '32px' }} />
-          </div>
-        </div>
-      );
+      return null;
     }
 
     // Mobile: show circle on left, logo in center, avatar on right
