@@ -431,6 +431,25 @@ export default function HomePage() {
       setUser(u);
       setLoadingAuth(false);
       
+      if (u) {
+        // Load user's landlord details and pre-fill the form
+        try {
+          const userDoc = await getDoc(doc(db, 'users', u.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (userData.landlordDetails) {
+              console.log('Loading landlord details from user profile:', userData.landlordDetails);
+              setAnswers(prev => ({
+                ...prev,
+                landlords: [userData.landlordDetails]
+              }));
+            }
+          }
+        } catch (error) {
+          console.error('Error loading user landlord details:', error);
+        }
+      }
+      
       // Check if user is editing from dashboard
       const editingFromDashboard = localStorage.getItem('editingFromDashboard') === 'true';
       setIsEditingFromDashboard(editingFromDashboard);
