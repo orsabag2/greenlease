@@ -76,7 +76,8 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
       }
 
       // For invisible reCAPTCHA, we need to call verify() first
-      await recaptchaVerifierRef.current.verify();
+      const recaptchaResult = await recaptchaVerifierRef.current.verify();
+      console.log('reCAPTCHA verification result:', recaptchaResult);
 
       const confirmationResult = await signInWithPhoneNumber(
         auth, 
@@ -89,7 +90,23 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
       setIsLoading(false);
     } catch (error: any) {
       console.error('Phone auth error:', error);
-      setError(getErrorMessage(error.code));
+      
+      // If reCAPTCHA fails, try to reinitialize it
+      if (error.code === 'auth/invalid-app-credential') {
+        try {
+          // Clear and reinitialize reCAPTCHA
+          if (recaptchaVerifierRef.current) {
+            recaptchaVerifierRef.current.clear();
+          }
+          recaptchaVerifierRef.current = initializeRecaptcha('recaptcha-container');
+          setError('שגיאה באימות האבטחה. אנא נסה שוב.');
+        } catch (reinitError) {
+          console.error('Failed to reinitialize reCAPTCHA:', reinitError);
+          setError('שגיאה באימות האבטחה. אנא רענן את הדף ונסה שוב.');
+        }
+      } else {
+        setError(getErrorMessage(error.code));
+      }
       setIsLoading(false);
     }
   };
@@ -133,6 +150,8 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
         return 'שגיאה פנימית, אנא נסה שוב';
       case 'auth/operation-not-allowed':
         return 'אימות טלפון לא מופעל. אנא פנה למנהל המערכת להפעלת השירות.';
+      case 'auth/invalid-app-credential':
+        return 'שגיאה באימות האבטחה. אנא רענן את הדף ונסה שוב.';
       default:
         return 'שגיאה בהתחברות, אנא נסה שוב';
     }
@@ -145,6 +164,19 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
     setStep('phone');
     setError('');
     setIsLoading(false);
+    
+    // Reinitialize reCAPTCHA when resetting
+    if (recaptchaRef.current) {
+      try {
+        if (recaptchaVerifierRef.current) {
+          recaptchaVerifierRef.current.clear();
+        }
+        recaptchaVerifierRef.current = initializeRecaptcha('recaptcha-container');
+        isInitializedRef.current = true;
+      } catch (error) {
+        console.error('Failed to reinitialize reCAPTCHA on reset:', error);
+      }
+    }
   };
 
   return (
@@ -176,6 +208,23 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
           fontSize: 14
         }}>
           {error}
+          {error.includes('אימות האבטחה') && (
+            <button
+              onClick={resetForm}
+              style={{
+                marginTop: 8,
+                padding: '4px 8px',
+                background: '#c33',
+                color: 'white',
+                border: 'none',
+                borderRadius: 4,
+                fontSize: 12,
+                cursor: 'pointer'
+              }}
+            >
+              נסה שוב
+            </button>
+          )}
         </div>
       )}
 

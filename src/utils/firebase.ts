@@ -36,10 +36,16 @@ export const initializeRecaptcha = (containerId: string) => {
   if (typeof window === 'undefined') return null;
   
   try {
+    // Clear any existing reCAPTCHA instances
+    const existingContainer = document.getElementById(containerId);
+    if (existingContainer) {
+      existingContainer.innerHTML = '';
+    }
+
     return new RecaptchaVerifier(auth, containerId, {
       size: 'invisible',
       callback: () => {
-        console.log('reCAPTCHA solved');
+        console.log('reCAPTCHA solved successfully');
       },
       'expired-callback': () => {
         console.log('reCAPTCHA expired');
