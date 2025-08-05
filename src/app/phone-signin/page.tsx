@@ -38,124 +38,29 @@ const PhoneSignInPage: React.FC = () => {
         direction: 'rtl',
         textAlign: 'right'
       }}>
-        {/* Illustration at the top */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          marginBottom: '32px'
-        }}>
-          <img
-            src="/login-illustation.png"
-            alt="Login Illustration"
-            style={{
-              maxWidth: '100%',
-              height: 'auto',
-              maxHeight: '200px'
-            }}
-          />
-        </div>
-
         {/* Header */}
         <h1 style={{
           fontSize: '28px',
           fontWeight: 700,
           color: '#281D57',
-          marginBottom: '16px',
+          marginBottom: '32px',
           textAlign: 'center',
           lineHeight: '1.3',
           direction: 'rtl'
         }}>
-          הצעד הראשון לחוזה שכירות - מתחיל כאן
+          התחברות עם טלפון
         </h1>
 
-        {/* Introductory Text */}
-        <p style={{
-          fontSize: '16px',
-          color: '#000',
-          marginBottom: '24px',
-          lineHeight: '1.5',
-          textAlign: 'center',
-          direction: 'rtl'
-        }}>
-          עוד רגע תתחילו לענות על שאלון קצר. לפי התשובות, נבנה עבורכם חוזה שכירות מותאם אישית, מוכן להורדה.
-        </p>
-
-        {/* Preparation Section */}
-        <div style={{ marginBottom: '32px', direction: 'rtl' }}>
-          <h3 style={{
-            fontSize: '16px',
-            fontWeight: 700,
-            color: '#000',
-            marginBottom: '16px',
-            textAlign: 'right'
-          }}>
-            כדי שהכול יתקתק, כדאי להכין כמה דברים מראש:
-          </h3>
-          <ul style={{
-            listStyle: 'none',
-            padding: 0,
-            margin: 0,
-            direction: 'rtl'
-          }}>
-            {[
-              'שם השוכר ומספר תעודת זהות',
-              'מתי מתחילים ומתי מסיימים',
-              'כמה שכר דירה משלמים',
-              'איזה ביטחונות תבקשו',
-              'כל פרט חשוב שתרצו להכניס (כמו חניה, מחסן, בעלי חיים)'
-            ].map((item, index) => (
-              <li key={index} style={{
-                fontSize: '14px',
-                color: '#000',
-                marginBottom: '8px',
-                paddingRight: '24px',
-                position: 'relative',
-                textAlign: 'right',
-                direction: 'rtl'
-              }}>
-                <svg
-                  style={{
-                    position: 'absolute',
-                    right: 0,
-                    top: '2px',
-                    width: '16px',
-                    height: '16px',
-                    flexShrink: 0
-                  }}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
-                    fill="#38E18E"
-                  />
-                </svg>
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-
         {/* Phone Authentication Component */}
-        <div style={{
-          border: '2px solid #E5E7EB',
-          borderRadius: '12px',
-          padding: '24px',
-          background: '#fff',
-          marginBottom: '16px'
-        }}>
-          <PhoneSignIn 
-            onSuccess={handlePhoneSignInSuccess}
-            onError={handlePhoneSignInError}
-          />
-        </div>
+        <PhoneSignIn 
+          onSuccess={handlePhoneSignInSuccess}
+          onError={handlePhoneSignInError}
+        />
 
         {/* Back to Login Link */}
         <div style={{
           textAlign: 'center',
-          marginTop: '16px'
+          marginTop: '24px'
         }}>
           <Link 
             href="/"

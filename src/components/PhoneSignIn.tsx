@@ -181,11 +181,6 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
 
   return (
     <div className="phone-signin-container" style={{
-      background: '#fff',
-      borderRadius: 16,
-      padding: 24,
-      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-      maxWidth: 400,
       width: '100%'
     }}>
       {error && (
