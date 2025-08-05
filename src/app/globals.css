@@ -40,8 +40,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: rgb(248, 248, 252);
+    --foreground: #171717;
   }
   
   /* Override dark mode for login pages */
