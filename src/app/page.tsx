@@ -1724,11 +1724,12 @@ export default function HomePage() {
             </div>
           </div>
         )}
+          <Stepper currentStep={step} showSignInModal={showSignInModal} />
                         <main className="flex flex-col items-center min-h-screen" style={{ 
-                          paddingTop: isEditingPaidContract ? (isMobile ? 112 : 140) : (isMobile ? 80 : 100), 
+                          paddingTop: 0,
                           paddingBottom: isMobile ? 4 : 0,
                           background: isMobile ? '#fff' : '#F8F8FC',
-                          minHeight: isMobile ? 'calc(100vh - 84px)' : '100vh',
+                          minHeight: '100vh',
                           overflowY: 'auto'
                         }} dir="rtl">
                           {isLoading && (
@@ -1741,7 +1742,6 @@ export default function HomePage() {
                               </div>
                             </div>
                           )}
-          <Stepper currentStep={step} showSignInModal={showSignInModal} />
           {user && (
             <AnimatePresence mode="wait">
               <motion.div
