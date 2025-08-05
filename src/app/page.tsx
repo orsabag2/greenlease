@@ -759,12 +759,48 @@ export default function HomePage() {
 
     // Show loading state or prevent hydration mismatch by not rendering until mounted
     if (!mounted || isLoading) {
-      return null;
+      return (
+        <div className="fixed top-0 left-0 w-full z-30 flex justify-center items-center py-2 px-4 bg-white" style={{ borderBottom: '1.5px solid #E0E7EF', borderRadius: '0 0 18px 18px', minHeight: '48px', top: isEditingPaidContract ? '32px' : '0px' }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            flexShrink: 0 
+          }}>
+            <img src="/logo.svg" alt="GreenLease" style={{ width: '120px', height: '24px' }} />
+          </div>
+        </div>
+      );
     }
 
-    // No header when sign-in modal is active
+    // Mobile: show logo and hamburger menu when sign-in modal is active
+    if (isMobile && showSignInModal) {
+      return (
+        <div className="fixed top-0 left-0 w-full z-30 flex justify-center items-center py-2 px-4 bg-white" style={{ borderBottom: '1.5px solid #E0E7EF', borderRadius: '0 0 18px 18px', minHeight: '48px', top: isEditingPaidContract ? '32px' : '0px' }}>
+          {/* Logo for mobile */}
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            flexShrink: 0 
+          }}>
+            <img src="/logo.svg" alt="GreenLease" style={{ width: '120px', height: '24px' }} />
+          </div>
+        </div>
+      );
+    }
+
+    // Show only logo when sign-in modal is active (desktop)
     if (showSignInModal) {
-      return null;
+      return (
+        <div className="fixed top-0 left-0 w-full z-30 flex justify-center items-center pt-5 px-2 bg-white" style={{ borderBottom: '1.5px solid #E0E7EF', borderRadius: '0 0 18px 18px', minHeight: '48px', paddingBottom: 16, top: isEditingPaidContract ? '40px' : '0px' }}>
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            flexShrink: 0 
+          }}>
+            <img src="/logo.svg" alt="GreenLease" style={{ width: '200px', height: '32px' }} />
+          </div>
+        </div>
+      );
     }
 
     // Mobile: show circle on left, logo in center, avatar on right
@@ -1706,29 +1742,29 @@ export default function HomePage() {
                             </div>
                           )}
           <Stepper currentStep={step} showSignInModal={showSignInModal} />
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={step}
-              initial={{ opacity: 0, x: 40 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -40 }}
-              transition={{ duration: 0.35, ease: 'easeInOut' }}
-              className={isMobile ? 'w-full bg-white rounded-none flex flex-col items-center mt-8 motion-div mobile-content-container mobile-step-content' : 'w-full max-w-xl bg-white rounded-xl shadow-lg p-8 flex flex-col items-center mt-8'}
-              style={isMobile ? { 
-                alignItems: 'stretch', 
-                boxShadow: 'none', 
-                borderRadius: 0,
-                padding: '0 0 4px 0',
-                paddingLeft: '0',
-                paddingRight: '0',
-                paddingBottom: '4px',
-                minHeight: 'calc(100vh - 84px)',
-                overflowY: 'visible'
-              } : { alignItems: 'stretch' }}
-            >
-              {/* All other steps only if user is signed in */}
-              {user ? (
-              <div style={{ width: '100%' }}>
+          {user && (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={step}
+                initial={{ opacity: 0, x: 40 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -40 }}
+                transition={{ duration: 0.35, ease: 'easeInOut' }}
+                className={isMobile ? 'w-full bg-white rounded-none flex flex-col items-center mt-8 motion-div mobile-content-container mobile-step-content' : 'w-full max-w-xl bg-white rounded-xl shadow-lg p-8 flex flex-col items-center mt-8'}
+                style={isMobile ? { 
+                  alignItems: 'stretch', 
+                  boxShadow: 'none', 
+                  borderRadius: 0,
+                  padding: '0 0 4px 0',
+                  paddingLeft: '0',
+                  paddingRight: '0',
+                  paddingBottom: '4px',
+                  minHeight: 'calc(100vh - 84px)',
+                  overflowY: 'visible'
+                } : { alignItems: 'stretch' }}
+              >
+                                {/* All other steps only if user is signed in */}
+                <div style={{ width: '100%' }}>
                 {/* Step name/label and explanation */}
                 {step < grouped.length && (
                   <>
@@ -2421,10 +2457,10 @@ export default function HomePage() {
 
                   </div>
                 )}
-              </div>
-            ) : null}
-          </motion.div>
-        </AnimatePresence>
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          )}
       </main>
     </div>
   );
