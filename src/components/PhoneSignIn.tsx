@@ -194,21 +194,24 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
         }}>
           {error}
           {error.includes('אימות האבטחה') && (
-            <button
-              onClick={resetForm}
-              style={{
-                marginTop: 8,
-                padding: '4px 8px',
-                background: '#c33',
-                color: 'white',
-                border: 'none',
-                borderRadius: 4,
-                fontSize: 12,
-                cursor: 'pointer'
-              }}
-            >
-              נסה שוב
-            </button>
+                               <button
+                     onClick={resetForm}
+                     style={{
+                       marginTop: 8,
+                       padding: '8px 16px',
+                       background: '#38E18E',
+                       color: '#281D57',
+                       border: 'none',
+                       borderRadius: '8px',
+                       fontSize: '12px',
+                       fontWeight: '600',
+                       cursor: 'pointer',
+                       transition: 'all 0.2s ease',
+                       fontFamily: 'Noto Sans Hebrew, Arial, sans-serif'
+                     }}
+                   >
+                     נסה שוב
+                   </button>
           )}
         </div>
       )}
@@ -254,14 +257,17 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
             disabled={isLoading || !phoneNumber}
             style={{
               width: '100%',
-              padding: 12,
-              background: isLoading ? '#ccc' : '#007bff',
-              color: 'white',
+              padding: '16px 24px',
+              background: isLoading ? '#ccc' : '#38E18E',
+              color: isLoading ? '#666' : '#281D57',
               border: 'none',
-              borderRadius: 8,
-              fontSize: 16,
-              fontWeight: '500',
-              cursor: isLoading ? 'not-allowed' : 'pointer'
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              fontFamily: 'Noto Sans Hebrew, Arial, sans-serif',
+              direction: 'rtl'
             }}
           >
             {isLoading ? 'שולח...' : 'שלח קוד אימות'}
@@ -304,15 +310,18 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
             disabled={isLoading || !verificationCode}
             style={{
               width: '100%',
-              padding: 12,
-              background: isLoading ? '#ccc' : '#28a745',
-              color: 'white',
+              padding: '16px 24px',
+              background: isLoading ? '#ccc' : '#38E18E',
+              color: isLoading ? '#666' : '#281D57',
               border: 'none',
-              borderRadius: 8,
-              fontSize: 16,
-              fontWeight: '500',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: '600',
               cursor: isLoading ? 'not-allowed' : 'pointer',
-              marginBottom: 12
+              marginBottom: 12,
+              transition: 'all 0.2s ease',
+              fontFamily: 'Noto Sans Hebrew, Arial, sans-serif',
+              direction: 'rtl'
             }}
           >
             {isLoading ? 'מאמת...' : 'אמת קוד'}
@@ -323,13 +332,17 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
             disabled={isLoading}
             style={{
               width: '100%',
-              padding: 8,
+              padding: '12px 24px',
               background: 'transparent',
               color: '#666',
-              border: '1px solid #ddd',
-              borderRadius: 8,
-              fontSize: 14,
-              cursor: isLoading ? 'not-allowed' : 'pointer'
+              border: '2px solid #E5E7EB',
+              borderRadius: '12px',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              fontFamily: 'Noto Sans Hebrew, Arial, sans-serif',
+              direction: 'rtl'
             }}
           >
             חזור לשלב הקודם
