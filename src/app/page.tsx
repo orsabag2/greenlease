@@ -705,7 +705,7 @@ export default function HomePage() {
     }, [mobileMenuOpen, avatarDropdownOpen]);
     
     const handleStepClick = (stepIndex: number) => {
-      if (stepIndex <= step + 1) {
+      if (stepIndex <= step) {
         setStep(stepIndex);
         setMobileMenuOpen(false);
       }
@@ -982,7 +982,9 @@ export default function HomePage() {
                   {Array.isArray(steps) && steps.length > 0 ? steps.map((s, i) => (
                     <div
                       key={s.key}
-                      className={`flex items-center p-2 rounded-lg cursor-pointer transition-colors ${
+                      className={`flex items-center p-2 rounded-lg transition-colors ${
+                        i <= currentStep ? 'cursor-pointer' : 'cursor-not-allowed'
+                      } ${
                         i === currentStep ? 'bg-green-100 border border-green-300' : 
                         i < currentStep ? 'bg-gray-50' : 'bg-white'
                       }`}
@@ -1023,7 +1025,7 @@ export default function HomePage() {
                       <span
                         className={`text-sm font-medium ${
                           i === currentStep ? 'text-green-700' : 
-                          i < currentStep ? 'text-gray-600' : 'text-gray-400'
+                          i < currentStep ? 'text-gray-600' : 'text-gray-300'
                         }`}
                         style={{ fontFamily: 'Noto Sans Hebrew' }}
                       >
@@ -1122,7 +1124,9 @@ export default function HomePage() {
           {Array.isArray(steps) && steps.length > 0 ? steps.map((s, i) => (
             <div
               key={s.key}
-              className="flex flex-col items-center min-w-[40px] mx-1 cursor-pointer"
+              className={`flex flex-col items-center min-w-[40px] mx-1 ${
+                i <= currentStep ? 'cursor-pointer' : 'cursor-not-allowed'
+              }`}
               style={{ justifyContent: 'flex-start', alignItems: 'center', height: 70 }}
               onClick={() => handleStepClick(i)}
             >
@@ -1168,7 +1172,7 @@ export default function HomePage() {
                 className="text-xs text-center transition-all duration-200 font-medium"
                 title={s.label}
                 style={{
-                  color: i === currentStep ? activeText : textGray,
+                  color: i <= currentStep ? (i === currentStep ? activeText : textGray) : '#D1D5DB',
                   whiteSpace: 'normal',
                   wordBreak: 'break-word',
                   maxWidth: '50px',
@@ -2289,65 +2293,67 @@ export default function HomePage() {
                         />
                       </PayPalScriptProvider>
                       
-                      {/* Debug Payment Button */}
-                      <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-yellow-800 text-sm mb-3 text-center">
-                          🧪 <strong>Debug Mode:</strong> Simulate payment completion for testing
-                        </p>
-                        <button
-                          onClick={async () => {
-                            try {
-                              console.log('Debug: Simulating payment completion');
-                              
-                              // Simulate payment completion
-                              if (user) {
-                                const contractId = localStorage.getItem('currentContractId');
-                                if (contractId) {
-                                  await setDoc(doc(db, 'formAnswers', contractId), {
-                                    userId: user.uid,
-                                    answers,
-                                    updatedAt: new Date(),
-                                    status: 'paid', // Set the main status field
-                                    paymentStatus: 'paid', // Also set payment status for compatibility
-                                    paymentId: 'debug-payment-' + Date.now(),
-                                    paymentDate: new Date(),
-                                    orderDetails: {
-                                      id: 'debug-order-' + Date.now(),
-                                      status: 'COMPLETED',
-                                      debug: true
-                                    },
-                                    // Add edit tracking fields
-                                    editCount: 0,
-                                    maxEdits: 3,
-                                    isLocked: false
-                                  }, { merge: true });
-                                  
-                                  // Keep the contract ID in localStorage for the preview page
-                                  console.log('Debug: Contract ID kept in localStorage for preview page');
-                                  
-                                  console.log('Debug: Payment simulation completed successfully');
-                                  setStep(step + 1); // Move to preview step
+                      {/* Debug Payment Button - Only show in development */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <p className="text-yellow-800 text-sm mb-3 text-center">
+                            🧪 <strong>Debug Mode:</strong> Simulate payment completion for testing (Development Only)
+                          </p>
+                          <button
+                            onClick={async () => {
+                              try {
+                                console.log('Debug: Simulating payment completion');
+                                
+                                // Simulate payment completion
+                                if (user) {
+                                  const contractId = localStorage.getItem('currentContractId');
+                                  if (contractId) {
+                                    await setDoc(doc(db, 'formAnswers', contractId), {
+                                      userId: user.uid,
+                                      answers,
+                                      updatedAt: new Date(),
+                                      status: 'paid', // Set the main status field
+                                      paymentStatus: 'paid', // Also set payment status for compatibility
+                                      paymentId: 'debug-payment-' + Date.now(),
+                                      paymentDate: new Date(),
+                                      orderDetails: {
+                                        id: 'debug-order-' + Date.now(),
+                                        status: 'COMPLETED',
+                                        debug: true
+                                      },
+                                      // Add edit tracking fields
+                                      editCount: 0,
+                                      maxEdits: 3,
+                                      isLocked: false
+                                    }, { merge: true });
+                                    
+                                    // Keep the contract ID in localStorage for the preview page
+                                    console.log('Debug: Contract ID kept in localStorage for preview page');
+                                    
+                                    console.log('Debug: Payment simulation completed successfully');
+                                    setStep(step + 1); // Move to preview step
+                                  } else {
+                                    console.error('Debug: No contract ID found in localStorage');
+                                    setPaymentError('Debug: No contract ID found');
+                                  }
                                 } else {
-                                  console.error('Debug: No contract ID found in localStorage');
-                                  setPaymentError('Debug: No contract ID found');
+                                  console.error('Debug: No user logged in');
+                                  setPaymentError('Debug: No user logged in');
                                 }
-                              } else {
-                                console.error('Debug: No user logged in');
-                                setPaymentError('Debug: No user logged in');
+                              } catch (error) {
+                                console.error('Debug: Payment simulation error:', error);
+                                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                                setPaymentError('Debug: Payment simulation failed - ' + errorMessage);
                               }
-                            } catch (error) {
-                              console.error('Debug: Payment simulation error:', error);
-                              const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-                              setPaymentError('Debug: Payment simulation failed - ' + errorMessage);
-                            }
-                          }}
-                          className="w-full bg-yellow-500 text-white font-bold px-6 py-3 rounded-lg shadow hover:bg-yellow-600 transition-colors text-sm"
-                        >
-                          🧪 Simulate Payment Completion (Debug)
-                        </button>
-                        
+                            }}
+                            className="w-full bg-yellow-500 text-white font-bold px-6 py-3 rounded-lg shadow hover:bg-yellow-600 transition-colors text-sm"
+                          >
+                            🧪 Simulate Payment Completion (Debug)
+                          </button>
+                        </div>
+                      )}
+                      
 
-                      </div>
                     </div>
                     {step > 0 && (
                       <button

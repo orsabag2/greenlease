@@ -758,7 +758,6 @@ input::placeholder, textarea::placeholder, select::placeholder {
     font-size: 1rem !important;
     padding: 10px !important;
     min-width: 0 !important;
-    width: 100% !important;
     box-sizing: border-box !important;
   }
   label {

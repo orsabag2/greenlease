@@ -15,7 +15,7 @@
   { "id": "floor", "label": "קומה", "type": "text", "placeholder": "לדוג׳: 3" },
   { "id": "entrance", "label": "כניסה", "type": "text", "placeholder": "לדוג׳: ב'" },
   { "id": "propertyCity", "label": "באיזו עיר נמצאת הדירה שלך? ", "type": "text", "placeholder": "לדוגמה: תל אביב" },
-  { "id": "apartmentRooms", "label": "כמה חדרים יש בדירה שלך? ", "type": "text", "placeholder": "לדוגמה: 3" },
+  { "id": "apartmentRooms", "label": "כמה חדרים יש בדירה שלך? ", "type": "number", "placeholder": "לדוגמה: 3" },
   { "id": "apartmentFeatures", "label": "מה תרצה לכלול בדירה? (מזגנים, רהיטים וכו') ", "type": "text", "placeholder": "לדוגמה: מזגן, רהיטים" },
   { "id": "hasParking", "label": "האם יש חניה בדירה שלך? ", "type": "select", "options": ["כן", "לא"] },
   { "id": "parkingLotCount", "label": "כמה מקומות חניה תרצה להעמיד לרשות השוכר? ", "type": "select", "options": ["1", "2", "3", "4", "5"], "visibleIf": { "hasParking": "כן" } },

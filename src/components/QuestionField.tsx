@@ -901,6 +901,105 @@ const QuestionField: React.FC<Props> = ({ question, value, onChange, disabled, v
     );
   }
 
+  // Room counter for apartmentRooms
+  if (question.id === 'apartmentRooms') {
+    const [roomValue, setRoomValue] = React.useState<number>(typeof value === 'number' ? value : typeof value === 'string' && value ? parseFloat(value) : 1);
+
+    React.useEffect(() => {
+      if (typeof value === 'number') {
+        setRoomValue(value);
+      } else if (typeof value === 'string' && value) {
+        setRoomValue(parseFloat(value));
+      } else {
+        setRoomValue(1);
+      }
+    }, [value]);
+
+    const handleIncrement = () => {
+      const newValue = roomValue + 0.5;
+      setRoomValue(newValue);
+      onChange(newValue);
+    };
+
+    const handleDecrement = () => {
+      const newValue = Math.max(0.5, roomValue - 0.5);
+      setRoomValue(newValue);
+      onChange(newValue);
+    };
+
+    return (
+      <div className="mb-4 text-right" dir="rtl" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+          <label
+            className="block mb-1"
+            style={{
+              width: 404,
+              fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
+              fontStyle: 'normal',
+              fontWeight: 500,
+              fontSize: 14,
+              lineHeight: '19px',
+              textAlign: 'right',
+              color: '#281D57',
+              alignSelf: 'stretch',
+              flexGrow: 0,
+            }}
+          >
+            {question.label}
+          </label>
+          <div className="flex items-center justify-start gap-2 sm:gap-3 mt-2">
+            <button
+              type="button"
+              onClick={handleDecrement}
+              disabled={disabled}
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all hover:bg-gray-100 disabled:opacity-50"
+              style={{
+                border: '2px solid #D1D5DB',
+                color: '#281D57',
+                fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
+                fontWeight: 'bold',
+                fontSize: '14px',
+              }}
+            >
+              -
+            </button>
+            <div
+              className="px-4 py-2 sm:px-6 sm:py-2 rounded-lg border-2 text-center min-w-[80px] sm:min-w-[100px]"
+              style={{
+                border: '2px solid #D1D5DB',
+                color: '#281D57',
+                fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
+                fontWeight: 500,
+                fontSize: '14px',
+                background: '#fff',
+              }}
+            >
+              {roomValue}
+            </div>
+            <button
+              type="button"
+              onClick={handleIncrement}
+              disabled={disabled}
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all hover:bg-gray-100 disabled:opacity-50"
+              style={{
+                border: '2px solid #D1D5DB',
+                color: '#281D57',
+                fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif',
+                fontWeight: 'bold',
+                fontSize: '14px',
+              }}
+            >
+              +
+            </button>
+          </div>
+        </div>
+        {question.helperText && (
+          <div className="mt-1 text-sm text-gray-500" style={{ fontFamily: 'Noto Sans Hebrew, Rubik, Arial, sans-serif' }}>{question.helperText}</div>
+        )}
+      </div>
+    );
+  }
+
   // Phone and numeric field logic
   if (PHONE_FIELD_IDS.includes(question.id)) {
     return (
