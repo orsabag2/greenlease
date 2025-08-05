@@ -37,7 +37,7 @@ export const initializeRecaptcha = (containerId: string) => {
   
   try {
     return new RecaptchaVerifier(auth, containerId, {
-      size: 'normal',
+      size: 'invisible',
       callback: () => {
         console.log('reCAPTCHA solved');
       },

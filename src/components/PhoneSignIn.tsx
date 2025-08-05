@@ -75,6 +75,9 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
         throw new Error('reCAPTCHA לא זמין');
       }
 
+      // For invisible reCAPTCHA, we need to call verify() first
+      await recaptchaVerifierRef.current.verify();
+
       const confirmationResult = await signInWithPhoneNumber(
         auth, 
         formattedPhone, 
@@ -205,10 +208,11 @@ const PhoneSignIn: React.FC<PhoneSignInProps> = ({ onSuccess, onError }) => {
             />
           </div>
 
+          {/* Invisible reCAPTCHA container - hidden but needed for verification */}
           <div 
             id="recaptcha-container" 
             ref={recaptchaRef}
-            style={{ marginBottom: 16 }}
+            style={{ display: 'none' }}
           />
 
           <button
