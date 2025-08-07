@@ -322,6 +322,77 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     }
   };
 
+  const distributeSignedContract = async () => {
+    setSending(true);
+    try {
+      const response = await fetch('/api/signature/distribute-contract', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contractId,
+          signers: signers.filter(signer => signer.email && signer.email !== 'direct-sign@greenlease.me')
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`החוזה החתום נשלח בהצלחה ל-${result.sentCount} צדדים!`);
+        setShowSignatureModal(false);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to distribute contract');
+      }
+    } catch (error) {
+      console.error('Error distributing contract:', error);
+      alert('שגיאה בשליחת החוזה החתום: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const downloadSignedContract = async () => {
+    setSending(true);
+    try {
+      const response = await fetch('/api/signature/download-contract', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contractId,
+          signers: signers.filter(signer => signer.status === 'signed')
+        })
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `חוזה_שכירות_חתום_${contractId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        alert('החוזה החתום הורד בהצלחה!');
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to download contract');
+      }
+    } catch (error) {
+      console.error('Error downloading contract:', error);
+      alert('שגיאה בהורדת החוזה החתום: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Check if all signers have signed
+  const allSigned = signers.length > 0 && signers.every(signer => signer.status === 'signed');
+  const hasSignedSigners = signers.some(signer => signer.status === 'signed');
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'signed':
@@ -508,16 +579,41 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
             </ul>
           </div>
 
-          {/* Action Button */}
-          <div className="flex justify-center">
-            <button
-              onClick={sendAllInvitations}
-              disabled={sending || signers.filter(s => s.email && s.status === 'not_sent').length === 0}
-              className="px-8 py-3 bg-[#38E18E] text-[#281D57] rounded-lg font-semibold hover:bg-[#2bc77a] disabled:opacity-50 transition-colors"
-              style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
-            >
-              {sending ? 'שולח...' : 'שלח את החוזה החתום לכולם'}
-            </button>
+          {/* Action Buttons */}
+          <div className="flex justify-center gap-4">
+            {allSigned ? (
+              // All signed - show distribute button
+              <button
+                onClick={distributeSignedContract}
+                disabled={sending}
+                className="px-8 py-3 bg-[#38E18E] text-[#281D57] rounded-lg font-semibold hover:bg-[#2bc77a] disabled:opacity-50 transition-colors"
+                style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+              >
+                {sending ? 'שולח...' : 'שלח את החוזה החתום לכל הצדדים'}
+              </button>
+            ) : (
+              // Not all signed - show send invitations button
+              <button
+                onClick={sendAllInvitations}
+                disabled={sending || signers.filter(s => s.email && s.status === 'not_sent' && s.signerType !== 'landlord').length === 0}
+                className="px-8 py-3 bg-[#38E18E] text-[#281D57] rounded-lg font-semibold hover:bg-[#2bc77a] disabled:opacity-50 transition-colors"
+                style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+              >
+                {sending ? 'שולח...' : 'שלח את החוזה לחתימה דיגיטלית'}
+              </button>
+            )}
+            
+            {/* Debug download button - show when there are signed signers */}
+            {hasSignedSigners && (
+              <button
+                onClick={downloadSignedContract}
+                disabled={sending}
+                className="px-6 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+              >
+                {sending ? 'מוריד...' : 'הורד חוזה חתום (דיבאג)'}
+              </button>
+            )}
           </div>
         </div>
       </div>
