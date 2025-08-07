@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { SignatureStatus } from '@/types/signature';
+import SignatureCanvas from './SignatureCanvas';
 
 interface SignatureInvitationModalProps {
   isOpen: boolean;
@@ -21,6 +22,11 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [currentSigner, setCurrentSigner] = useState<SignatureStatus | null>(null);
+  const [signature, setSignature] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [signing, setSigning] = useState(false);
 
   // Initialize signers from contract data (fallback)
   const initializeSignersFromContractData = () => {
@@ -241,8 +247,53 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     }
   };
 
+  const handleDirectSign = (index: number) => {
+    const signer = signers[index];
+    setCurrentSigner(signer);
+    setShowSignatureModal(true);
+  };
+
+  const handleSignatureSubmit = async () => {
+    if (!signature || !termsAccepted || !currentSigner) return;
+
+    setSigning(true);
+    try {
+      // Use the direct signature API
+      const response = await fetch('/api/signature/direct-sign', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contractId,
+          signerId: currentSigner.signerId,
+          signerName: currentSigner.name,
+          signerType: currentSigner.signerType,
+          signature,
+          ipAddress: 'direct-sign',
+          userAgent: 'direct-sign'
+        }),
+      });
+
+      if (response.ok) {
+        setShowSignatureModal(false);
+        setSignature('');
+        setTermsAccepted(false);
+        setCurrentSigner(null);
+        // Refresh the signers list
+        await fetchSignatureStatuses();
+      } else {
+        console.error('Error saving signature');
+      }
+    } catch (error) {
+      console.error('Error saving signature:', error);
+    } finally {
+      setSigning(false);
+    }
+  };
+
   const sendAllInvitations = async () => {
-    const signersWithEmails = signers.filter(signer => signer.email && signer.status === 'not_sent');
+    const signersWithEmails = signers.filter(signer => signer.email && signer.status === 'not_sent' && signer.signerType !== 'landlord');
     if (signersWithEmails.length === 0) return;
 
     setSending(true);
@@ -370,7 +421,18 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
 
                 {/* Email and Actions (Left side) */}
                 <div className="flex items-center gap-2">
-                  {signer.status === 'not_sent' ? (
+                  {signer.signerType === 'landlord' && signer.status === 'not_sent' ? (
+                    // Landlord can sign directly
+                    <button
+                      onClick={() => handleDirectSign(index)}
+                      disabled={loading}
+                      className="px-4 py-2 bg-[#38E18E] text-[#281D57] rounded text-sm hover:bg-[#2bc77a] transition-colors font-semibold"
+                      style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                    >
+                      חתום עכשיו
+                    </button>
+                  ) : signer.status === 'not_sent' ? (
+                    // Other signers need email
                     <>
                       <input
                         type="email"
@@ -394,7 +456,7 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
                       <span className="text-sm text-gray-600 px-3 py-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
                         {signer.email}
                       </span>
-                      {(signer.status === 'sent' || signer.status === 'not_sent') && (
+                      {(signer.status === 'sent' || signer.status === 'not_sent') && signer.signerType !== 'landlord' && (
                         <button
                           onClick={() => resendInvitation(index)}
                           disabled={loading}
@@ -445,6 +507,82 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Signature Modal for Direct Signing */}
+      {showSignatureModal && currentSigner && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex justify-between items-center p-6 border-b">
+              <h3 className="text-xl font-bold text-[#281D57]" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                חתימה על הסכם השכירות
+              </h3>
+              <button
+                onClick={() => setShowSignatureModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="mb-6">
+                <p className="text-gray-600 mb-4" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                  {currentSigner.role}: {currentSigner.name}
+                </p>
+              </div>
+
+              {/* Agreement Checkbox */}
+              <div className="mb-6">
+                <label className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="mt-1"
+                    style={{ accentColor: '#8B5CF6' }}
+                  />
+                  <span className="text-sm text-gray-700" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                    אני מאשר/ת כי עיינתי בחוזה, הבנתי את תנאיו ואני מסכים/ה להם. חתימתי האלקטרונית מחייבת אותי בהתאם לחוק חתימה אלקטרונית, תשס"א-2001.
+                  </span>
+                </label>
+              </div>
+
+              {/* Signature Canvas */}
+              <div className="mb-6">
+                <SignatureCanvas 
+                  onSignatureChange={setSignature} 
+                  width={400} 
+                  height={150}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowSignatureModal(false)}
+                  className="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                >
+                  ביטול
+                </button>
+                <button
+                  onClick={handleSignatureSubmit}
+                  disabled={!signature || !termsAccepted || signing}
+                  className="px-6 py-2 bg-[#38E18E] text-[#281D57] font-bold rounded-lg shadow hover:bg-[#2bc77a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                >
+                  {signing ? 'שומר חתימה...' : 'אשר חתימה'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
