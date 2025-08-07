@@ -96,63 +96,70 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('API: No landlord data found');
     }
 
-    // Add tenants
-    if (answers.tenants && answers.tenants.length > 0) {
-      answers.tenants.forEach((tenant: any) => {
-        const invitation = invitations.find(inv => 
-          inv.signerId === tenant.tenantIdNumber && inv.signerType === 'tenant'
-        );
-        
-        signers.push({
-          role: 'השוכר',
-          name: tenant.tenantName || '',
-          status: invitation?.status || 'not_sent',
-          email: invitation?.signerEmail || tenant.tenantEmail || '',
-          signerType: 'tenant',
-          signerId: tenant.tenantIdNumber || '',
-          invitationId: invitation?.id
-        });
-      });
-    } else if (answers.tenantName) {
-      const invitation = invitations.find(inv => 
-        inv.signerId === answers.tenantIdNumber && inv.signerType === 'tenant'
-      );
-      
-      signers.push({
-        role: 'השוכר',
-        name: answers.tenantName,
-        status: invitation?.status || 'not_sent',
-        email: invitation?.signerEmail || answers.tenantEmail || '',
-        signerType: 'tenant',
-        signerId: answers.tenantIdNumber || '',
-        invitationId: invitation?.id
-      });
-    }
+                    // Add tenants
+                if (answers.tenants && answers.tenants.length > 0) {
+                  answers.tenants.forEach((tenant: any, index: number) => {
+                    // Generate a unique signerId if tenantIdNumber is empty
+                    const signerId = tenant.tenantIdNumber || `tenant-${index}-${tenant.tenantName || 'unknown'}`;
+                    
+                    const invitation = invitations.find(inv => 
+                      inv.signerId === signerId && inv.signerType === 'tenant'
+                    );
+                    
+                    signers.push({
+                      role: 'השוכר',
+                      name: tenant.tenantName || '',
+                      status: invitation?.status || 'not_sent',
+                      email: invitation?.signerEmail || tenant.tenantEmail || '',
+                      signerType: 'tenant',
+                      signerId: signerId,
+                      invitationId: invitation?.id
+                    });
+                  });
+                } else if (answers.tenantName) {
+                  const signerId = answers.tenantIdNumber || `tenant-single-${answers.tenantName}`;
+                  const invitation = invitations.find(inv => 
+                    inv.signerId === signerId && inv.signerType === 'tenant'
+                  );
+                  
+                  signers.push({
+                    role: 'השוכר',
+                    name: answers.tenantName,
+                    status: invitation?.status || 'not_sent',
+                    email: invitation?.signerEmail || answers.tenantEmail || '',
+                    signerType: 'tenant',
+                    signerId: signerId,
+                    invitationId: invitation?.id
+                  });
+                }
 
-    // Add guarantors
-    if (answers.guarantorsCount && answers.guarantorsCount > 0) {
-      for (let i = 1; i <= answers.guarantorsCount; i++) {
-        const guarantorName = answers[`guarantor${i}Name`];
-        const guarantorId = answers[`guarantor${i}Id`];
-        const guarantorEmail = answers[`guarantor${i}Email`];
-        
-        if (guarantorName) {
-          const invitation = invitations.find(inv => 
-            inv.signerId === guarantorId && inv.signerType === 'guarantor'
-          );
-          
-          signers.push({
-            role: i === 1 ? 'ערב ראשון' : 'ערב שני',
-            name: guarantorName,
-            status: invitation?.status || 'not_sent',
-            email: invitation?.signerEmail || guarantorEmail || '',
-            signerType: 'guarantor',
-            signerId: guarantorId || '',
-            invitationId: invitation?.id
-          });
-        }
-      }
-    }
+                    // Add guarantors
+                if (answers.guarantorsCount && answers.guarantorsCount > 0) {
+                  for (let i = 1; i <= answers.guarantorsCount; i++) {
+                    const guarantorName = answers[`guarantor${i}Name`];
+                    const guarantorId = answers[`guarantor${i}Id`];
+                    const guarantorEmail = answers[`guarantor${i}Email`];
+                    
+                    if (guarantorName) {
+                      // Generate a unique signerId if guarantorId is empty
+                      const signerId = guarantorId || `guarantor-${i}-${guarantorName}`;
+                      
+                      const invitation = invitations.find(inv => 
+                        inv.signerId === signerId && inv.signerType === 'guarantor'
+                      );
+                      
+                      signers.push({
+                        role: i === 1 ? 'ערב ראשון' : 'ערב שני',
+                        name: guarantorName,
+                        status: invitation?.status || 'not_sent',
+                        email: invitation?.signerEmail || guarantorEmail || '',
+                        signerType: 'guarantor',
+                        signerId: signerId,
+                        invitationId: invitation?.id
+                      });
+                    }
+                  }
+                }
 
     console.log('API: Created signers:', signers);
     console.log('API: Signers with status:', signers.map(s => ({ name: s.name, status: s.status, email: s.email })));
