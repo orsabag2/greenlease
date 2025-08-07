@@ -3,20 +3,30 @@ import { db } from '@/utils/firebase';
 import { collection, addDoc, doc, setDoc, getDoc } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 
+// Test UUID generation
+console.log('UUID test:', uuidv4());
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  console.log('Direct sign API called with method:', req.method);
+  console.log('Direct sign API request body:', req.body);
+  
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
   }
 
   const { contractId, signerId, signerName, signerType, signature, ipAddress, userAgent } = req.body;
+  
+  console.log('Extracted fields:', { contractId, signerId, signerName, signerType, signatureLength: signature?.length });
 
   if (!contractId || !signerId || !signerName || !signerType || !signature) {
+    console.log('Missing required fields:', { contractId: !!contractId, signerId: !!signerId, signerName: !!signerName, signerType: !!signerType, signature: !!signature });
     res.status(400).json({ error: 'Missing required fields' });
     return;
   }
 
   try {
+    console.log('Creating invitation data...');
     // Create a direct signature invitation
     const invitationData = {
       contractId,
@@ -35,8 +45,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       userAgent: userAgent || 'direct-sign'
     };
 
+    console.log('Invitation data created:', invitationData);
+    
     // Add the invitation to Firestore
+    console.log('Adding to Firestore...');
     const invitationRef = await addDoc(collection(db, 'signatureInvitations'), invitationData);
+    console.log('Added to Firestore with ID:', invitationRef.id);
 
     // Update contract signatures document
     const contractSignaturesRef = doc(db, 'contractSignatures', contractId);
