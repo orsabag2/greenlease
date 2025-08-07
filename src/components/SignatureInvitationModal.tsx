@@ -22,19 +22,120 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
   const [sending, setSending] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Initialize signers from contract data (fallback)
+  const initializeSignersFromContractData = () => {
+    if (!contractData) {
+      console.log('No contract data available');
+      return;
+    }
+    
+    console.log('Initializing signers from contract data:', contractData);
+    
+    const initialSigners: SignatureStatus[] = [];
+
+    // Add landlord
+    if (contractData.landlords && contractData.landlords.length > 0) {
+      contractData.landlords.forEach((landlord: any) => {
+        initialSigners.push({
+          role: 'המשכיר',
+          name: landlord.landlordName || '',
+          status: 'not_sent',
+          email: landlord.landlordEmail || '',
+          signerType: 'landlord',
+          signerId: landlord.landlordId || '',
+        });
+      });
+    } else if (contractData.landlordName) {
+      initialSigners.push({
+        role: 'המשכיר',
+        name: contractData.landlordName,
+        status: 'not_sent',
+        email: contractData.landlordEmail || '',
+        signerType: 'landlord',
+        signerId: contractData.landlordId || '',
+      });
+    }
+
+    // Add tenants
+    if (contractData.tenants && contractData.tenants.length > 0) {
+      contractData.tenants.forEach((tenant: any) => {
+        initialSigners.push({
+          role: 'השוכר',
+          name: tenant.tenantName || '',
+          status: 'not_sent',
+          email: tenant.tenantEmail || '',
+          signerType: 'tenant',
+          signerId: tenant.tenantIdNumber || '',
+        });
+      });
+    } else if (contractData.tenantName) {
+      initialSigners.push({
+        role: 'השוכר',
+        name: contractData.tenantName,
+        status: 'not_sent',
+        email: contractData.tenantEmail || '',
+        signerType: 'tenant',
+        signerId: contractData.tenantIdNumber || '',
+      });
+    }
+
+    // Add guarantors
+    if (contractData.guarantorsCount && contractData.guarantorsCount > 0) {
+      for (let i = 1; i <= contractData.guarantorsCount; i++) {
+        const guarantorName = contractData[`guarantor${i}Name`];
+        const guarantorId = contractData[`guarantor${i}Id`];
+        const guarantorEmail = contractData[`guarantor${i}Email`];
+        
+        if (guarantorName) {
+          initialSigners.push({
+            role: i === 1 ? 'ערב ראשון' : 'ערב שני',
+            name: guarantorName,
+            status: 'not_sent',
+            email: guarantorEmail || '',
+            signerType: 'guarantor',
+            signerId: guarantorId || '',
+          });
+        }
+      }
+    }
+
+    console.log('Created signers:', initialSigners);
+    return initialSigners;
+  };
+
   // Fetch current signature statuses
   const fetchSignatureStatuses = async () => {
-    if (!contractId) return;
+    if (!contractId) {
+      // Fallback to contract data if no contractId
+      const fallbackSigners = initializeSignersFromContractData();
+      if (fallbackSigners) {
+        setSigners(fallbackSigners);
+      }
+      return;
+    }
     
     setRefreshing(true);
     try {
       const response = await fetch(`/api/signature/status?contractId=${contractId}`);
       if (response.ok) {
         const data = await response.json();
+        console.log('Fetched signers:', data.signers);
         setSigners(data.signers);
+      } else {
+        console.log('API failed, using fallback data');
+        // Fallback to contract data if API fails
+        const fallbackSigners = initializeSignersFromContractData();
+        if (fallbackSigners) {
+          setSigners(fallbackSigners);
+        }
       }
     } catch (error) {
       console.error('Error fetching signature statuses:', error);
+      // Fallback to contract data if API fails
+      const fallbackSigners = initializeSignersFromContractData();
+      if (fallbackSigners) {
+        setSigners(fallbackSigners);
+      }
     } finally {
       setRefreshing(false);
     }
@@ -42,10 +143,11 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
 
   // Initialize signers and fetch current statuses
   useEffect(() => {
-    if (isOpen && contractId) {
+    if (isOpen) {
+      console.log('Modal opened with:', { contractId, contractData });
       fetchSignatureStatuses();
     }
-  }, [isOpen, contractId]);
+  }, [isOpen, contractId, contractData]);
 
   const updateSignerEmail = (index: number, email: string) => {
     const updatedSigners = [...signers];
@@ -178,6 +280,17 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
 
           {/* Signers List - Redesigned to match the image */}
           <div className="mb-8 space-y-4">
+            {signers.length === 0 && (
+              <div className="text-center py-8 text-gray-500" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                {refreshing ? 'טוען...' : (
+                  <div>
+                    <div>לא נמצאו חותמים</div>
+                    <div className="text-xs mt-2">Debug: contractId={contractId}</div>
+                    <div className="text-xs">contractData keys: {contractData ? Object.keys(contractData).join(', ') : 'none'}</div>
+                  </div>
+                )}
+              </div>
+            )}
             {signers.map((signer, index) => (
               <div key={index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                 {/* Role and Name (Right side) */}
