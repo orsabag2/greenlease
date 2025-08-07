@@ -6,9 +6,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return;
   }
 
-  console.log('Testing PDFShift API...');
+  console.log('Testing simple PDF generation...');
   console.log('PDFShift API Key exists:', !!process.env.PDFSHIFT_API_KEY);
-  console.log('PDFShift API Key (first 10 chars):', process.env.PDFSHIFT_API_KEY?.substring(0, 10) + '...');
 
   if (!process.env.PDFSHIFT_API_KEY) {
     res.status(400).json({ error: 'PDFShift API key not found' });
@@ -16,8 +15,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Test with a simple HTML
-    const testHtml = `
+    // Test with a very simple HTML
+    const simpleHtml = `
       <html>
         <head>
           <style>
@@ -25,14 +24,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           </style>
         </head>
         <body>
-          <h1>PDFShift Test</h1>
-          <p>This is a test to verify the PDFShift API is working.</p>
-          <p>Time: ${new Date().toISOString()}</p>
+          <h1>Simple Test</h1>
+          <p>This is a simple test.</p>
         </body>
       </html>
     `;
 
-    console.log('Sending test request to PDFShift...');
+    console.log('Sending simple HTML to PDFShift...');
     
     const pdfResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
@@ -41,7 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        source: testHtml,
+        source: simpleHtml,
         format: 'A4',
         margin: '1cm',
         landscape: false
@@ -49,34 +47,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     console.log('PDFShift response status:', pdfResponse.status);
-    console.log('PDFShift response headers:', Object.fromEntries(pdfResponse.headers.entries()));
 
     if (!pdfResponse.ok) {
       const errorText = await pdfResponse.text();
-      console.log('PDFShift test failed:', errorText);
+      console.log('PDFShift simple test failed:', errorText);
       res.status(500).json({ 
-        error: 'PDFShift API test failed', 
+        error: 'PDFShift API simple test failed', 
         status: pdfResponse.status,
-        statusText: pdfResponse.statusText,
         details: errorText
       });
       return;
     }
 
     const pdfBuffer = await pdfResponse.arrayBuffer();
-    console.log('PDFShift test successful, PDF size:', pdfBuffer.byteLength);
+    console.log('PDFShift simple test successful, PDF size:', pdfBuffer.byteLength);
 
-    res.status(200).json({
-      success: true,
-      message: 'PDFShift API is working correctly',
-      pdfSize: pdfBuffer.byteLength,
-      status: pdfResponse.status
-    });
+    // Return the PDF directly
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="simple_test.pdf"');
+    res.setHeader('Content-Length', pdfBuffer.byteLength);
+    res.send(Buffer.from(pdfBuffer));
 
   } catch (error) {
-    console.error('Error testing PDFShift:', error);
+    console.error('Error testing simple PDF:', error);
     res.status(500).json({ 
-      error: 'Failed to test PDFShift API', 
+      error: 'Failed to test simple PDF', 
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }

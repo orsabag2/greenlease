@@ -87,7 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const pdfResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.PDFSHIFT_API_KEY}`,
+        'X-API-Key': process.env.PDFSHIFT_API_KEY,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
