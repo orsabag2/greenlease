@@ -425,16 +425,8 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
                   </div>
                 </div>
 
-                {/* Status (Middle) */}
-                <div className="flex items-center gap-2 mx-4">
-                  {getStatusIcon(signer.status)}
-                  <span className="text-sm font-medium" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-                    {getStatusText(signer.status)}
-                  </span>
-                </div>
-
-                {/* Email and Actions (Left side) */}
-                <div className="flex items-center gap-2">
+                {/* Email (Middle) */}
+                <div className="flex items-center gap-2 mx-4 min-w-[200px]">
                   {signer.signerType === 'landlord' && signer.status === 'not_sent' ? (
                     // Landlord can sign directly
                     <button
@@ -465,11 +457,11 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
                         הוסיפו כתובת מייל
                       </button>
                     </>
-                                                ) : (
-                                <>
-                                  <span className="text-sm text-gray-600 px-3 py-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-                                    {signer.email && signer.email !== 'direct-sign@greenlease.me' ? signer.email : ''}
-                                  </span>
+                  ) : (
+                    <>
+                      <span className="text-sm text-gray-600 px-3 py-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                        {signer.email && signer.email !== 'direct-sign@greenlease.me' ? signer.email : ''}
+                      </span>
                       {(signer.status === 'sent' || signer.status === 'not_sent') && signer.signerType !== 'landlord' && (
                         <button
                           onClick={() => resendInvitation(index)}
@@ -482,6 +474,14 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
                       )}
                     </>
                   )}
+                </div>
+
+                {/* Status (Left side) */}
+                <div className="flex items-center gap-2 min-w-[120px]">
+                  {getStatusIcon(signer.status)}
+                  <span className="text-sm font-medium" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                    {getStatusText(signer.status)}
+                  </span>
                 </div>
               </div>
             ))}
