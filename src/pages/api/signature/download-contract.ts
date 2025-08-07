@@ -66,8 +66,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('Template fetched, length:', template.length);
     
     console.log('Merging contract...');
-    const contractHtml = contractMerge(template, answers);
-    console.log('Contract merged, length:', contractHtml.length);
+    const contractContent = contractMerge(template, answers);
+    console.log('Contract merged, length:', contractContent.length);
+    
+    // Wrap in proper HTML structure
+    const contractHtml = `<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>חוזה שכירות</title>
+    <style>
+        body {
+            font-family: 'Noto Sans Hebrew', Arial, sans-serif;
+            direction: rtl;
+            text-align: right;
+            line-height: 1.6;
+            margin: 20px;
+            font-size: 14px;
+        }
+        .signature-placeholder {
+            display: inline-block;
+            width: 200px;
+            height: 80px;
+            border: 1px solid #ccc;
+            margin: 10px 0;
+            text-align: center;
+            line-height: 80px;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <pre style="white-space: pre-wrap; font-family: inherit;">${contractContent}</pre>
+</body>
+</html>`;
+    console.log('HTML wrapped, final length:', contractHtml.length);
     
     // Add signatures to the HTML
     console.log('Adding signatures to contract...');
