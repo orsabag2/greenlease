@@ -92,17 +92,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         margin: '1cm',
         landscape: false,
         css: `
-          body { font-family: 'Noto Sans Hebrew', Arial, sans-serif; direction: rtl; }
-          .signature-placeholder { 
-            display: inline-block; 
-            width: 200px; 
-            height: 80px; 
-            border: 1px solid #ccc; 
-            margin: 10px 0; 
+          body { 
+            font-family: 'Noto Sans Hebrew', Arial, sans-serif; 
+            direction: rtl; 
+            line-height: 1.6;
+            margin: 20px;
+          }
+          .signature-header {
             text-align: center;
-            line-height: 80px;
-            font-size: 12px;
-            color: #666;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 20px 0;
+          }
+          .signature-block {
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+          }
+          .signature-block strong {
+            font-weight: bold;
           }
         `
       }),
@@ -151,23 +160,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 function addSignaturesToContract(contractHtml: string, signatures: any[]): string {
   let signedHtml = contractHtml;
   
+  console.log('Adding signatures to contract. Found signatures:', signatures.length);
+  
   // Add signatures to the contract
   signatures.forEach((signature) => {
     const signatureImage = signature.signatureImage;
     const signerName = signature.signerName;
     const signerRole = signature.signerRole;
     
-    // Find signature placeholders and replace them
-    const placeholderPattern = new RegExp(`<span class="signature-placeholder">${signerRole}</span>`, 'g');
+    console.log('Processing signature for:', signerRole, signerName);
+    
+    // Create signature HTML
     const signatureHtml = `
-      <div style="text-align: center; margin: 10px 0;">
-        <img src="${signatureImage}" style="max-width: 200px; max-height: 80px; border: 1px solid #ccc;" />
-        <div style="font-size: 12px; margin-top: 5px;">${signerName}</div>
+      <div style="text-align: center; margin: 10px 0; border: 1px solid #ccc; padding: 10px; display: inline-block; min-width: 200px;">
+        <img src="${signatureImage}" style="max-width: 180px; max-height: 60px; display: block; margin: 0 auto;" />
+        <div style="font-size: 12px; margin-top: 5px; font-weight: bold;">${signerName}</div>
+        <div style="font-size: 10px; color: #666;">${signerRole}</div>
       </div>
     `;
     
-    signedHtml = signedHtml.replace(placeholderPattern, signatureHtml);
+    // Replace signature placeholders based on role
+    if (signerRole === 'המשכיר') {
+      // Replace the landlord signature line
+      const landlordPattern = /<strong>המשכיר<\/strong>: ____________________/g;
+      signedHtml = signedHtml.replace(landlordPattern, `<strong>המשכיר</strong>: ${signatureHtml}`);
+    } else if (signerRole === 'השוכר') {
+      // Replace the tenant signature line
+      const tenantPattern = /<strong>השוכר<\/strong>: ____________________/g;
+      signedHtml = signedHtml.replace(tenantPattern, `<strong>השוכר</strong>: ${signatureHtml}`);
+    } else if (signerRole === 'ערב ראשון' || signerRole === 'ערב שני') {
+      // Add guarantor signatures after the main signatures
+      const guarantorSignature = `
+        <div class="signature-block">
+          <strong>${signerRole}</strong>: ${signatureHtml}
+          שם: <strong>${signerName}</strong>
+        </div>
+      `;
+      
+      // Add guarantor signature before the closing section
+      signedHtml = signedHtml.replace('⸻\n\n16. {{guarantorsSection}}', `${guarantorSignature}\n\n⸻\n\n16. {{guarantorsSection}}`);
+    }
   });
   
+  console.log('Signatures added successfully');
   return signedHtml;
 }
