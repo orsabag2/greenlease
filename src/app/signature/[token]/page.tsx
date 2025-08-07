@@ -47,8 +47,25 @@ export default function SignaturePage() {
         
         // Generate contract text
         if (data.contractData) {
-          const mergedContract = contractMerge(data.contractData.answers || data.contractData, data.contractData.answers || data.contractData);
-          setContractText(mergedContract);
+          // Load template and merge with contract data
+          try {
+            const templateResponse = await fetch('/data/master-template.txt');
+            const template = await templateResponse.text();
+            
+            // Prepare data for contractMerge (similar to ContractPreviewPage)
+            const rawData = data.contractData.answers || data.contractData;
+            const contractData = {
+              ...rawData,
+              ...(Array.isArray(rawData.landlords) && rawData.landlords[0] ? rawData.landlords[0] : {}),
+              ...(Array.isArray(rawData.tenants) && rawData.tenants[0] ? rawData.tenants[0] : {}),
+            };
+            
+            const mergedContract = contractMerge(template, contractData);
+            setContractText(mergedContract);
+          } catch (templateError) {
+            console.error('Error loading template:', templateError);
+            setError('שגיאה בטעינת תבנית החוזה');
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
