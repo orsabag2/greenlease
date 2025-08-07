@@ -49,13 +49,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const signers = [];
 
     // Add landlord
+    console.log('API: Processing landlords...');
+    console.log('API: answers.landlords:', answers.landlords);
+    console.log('API: answers.landlordName:', answers.landlordName);
+    console.log('API: answers.landlordId:', answers.landlordId);
+    
     if (answers.landlords && answers.landlords.length > 0) {
       answers.landlords.forEach((landlord: any) => {
+        console.log('API: Processing landlord:', landlord);
         const invitation = invitations.find(inv => 
           inv.signerId === landlord.landlordId && inv.signerType === 'landlord'
         );
         
-        signers.push({
+        const signer = {
           role: 'המשכיר',
           name: landlord.landlordName || '',
           status: invitation?.status || 'not_sent',
@@ -63,14 +69,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           signerType: 'landlord',
           signerId: landlord.landlordId || '',
           invitationId: invitation?.id
-        });
+        };
+        
+        console.log('API: Created landlord signer:', signer);
+        signers.push(signer);
       });
     } else if (answers.landlordName) {
+      console.log('API: Using direct landlord fields');
       const invitation = invitations.find(inv => 
         inv.signerId === answers.landlordId && inv.signerType === 'landlord'
       );
       
-      signers.push({
+      const signer = {
         role: 'המשכיר',
         name: answers.landlordName,
         status: invitation?.status || 'not_sent',
@@ -78,7 +88,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         signerType: 'landlord',
         signerId: answers.landlordId || '',
         invitationId: invitation?.id
-      });
+      };
+      
+      console.log('API: Created landlord signer:', signer);
+      signers.push(signer);
+    } else {
+      console.log('API: No landlord data found');
     }
 
     // Add tenants
