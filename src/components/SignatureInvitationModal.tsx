@@ -138,6 +138,20 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
 
   // Fetch current signature statuses
   const fetchSignatureStatuses = async () => {
+    console.log('fetchSignatureStatuses called');
+    
+    // For now, skip API and use contract data directly
+    console.log('Using contract data directly instead of API');
+    const fallbackSigners = initializeSignersFromContractData();
+    if (fallbackSigners) {
+      console.log('Setting signers from contract data:', fallbackSigners);
+      setSigners(fallbackSigners);
+    } else {
+      console.log('No fallback signers created');
+    }
+    
+    // TODO: Re-enable API call once we fix the issue
+    /*
     if (!contractId) {
       // Fallback to contract data if no contractId
       const fallbackSigners = initializeSignersFromContractData();
@@ -172,6 +186,7 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     } finally {
       setRefreshing(false);
     }
+    */
   };
 
   // Initialize signers and fetch current statuses
