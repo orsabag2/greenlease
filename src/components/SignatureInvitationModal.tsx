@@ -107,6 +107,28 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     console.log('Guarantor2Name:', contractData.guarantor2Name);
 
     console.log('Created signers:', initialSigners);
+    
+    // If no signers found, create some test signers
+    if (initialSigners.length === 0) {
+      console.log('No signers found, creating test signers');
+      initialSigners.push({
+        role: 'המשכיר',
+        name: 'אור סבג',
+        status: 'not_sent',
+        email: '',
+        signerType: 'landlord',
+        signerId: 'test-landlord',
+      });
+      initialSigners.push({
+        role: 'השוכר',
+        name: 'קמילה שופן',
+        status: 'not_sent',
+        email: '',
+        signerType: 'tenant',
+        signerId: 'test-tenant',
+      });
+    }
+    
     return initialSigners;
   };
 
@@ -152,6 +174,8 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       console.log('Modal opened with:', { contractId, contractData });
+      console.log('Contract data type:', typeof contractData);
+      console.log('Contract data keys:', contractData ? Object.keys(contractData) : 'none');
       fetchSignatureStatuses();
     }
   }, [isOpen, contractId, contractData]);
