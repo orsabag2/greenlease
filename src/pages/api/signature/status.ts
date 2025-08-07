@@ -23,6 +23,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const contractData = contractDoc.data();
+    console.log('API: Contract data keys:', Object.keys(contractData));
+    console.log('API: Landlords:', contractData.landlords);
+    console.log('API: Tenants:', contractData.tenants);
+    console.log('API: Guarantors count:', contractData.guarantorsCount);
 
     // Get all invitations for this contract
     const invitationsQuery = query(
@@ -35,6 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       id: doc.id,
       ...doc.data()
     }));
+    console.log('API: Found invitations:', invitations.length);
 
     // Build signers list with current status
     const signers = [];
@@ -130,6 +135,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    console.log('API: Created signers:', signers);
+    
     res.status(200).json({
       signers,
       contractData: {
