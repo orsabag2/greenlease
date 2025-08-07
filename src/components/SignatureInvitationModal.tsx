@@ -250,6 +250,9 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
 
   const handleDirectSign = (index: number) => {
     const signer = signers[index];
+    console.log('handleDirectSign called with index:', index);
+    console.log('Selected signer:', signer);
+    console.log('All signers:', signers);
     setCurrentSigner(signer);
     setShowSignatureModal(true);
   };
@@ -259,7 +262,9 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
 
     setSigning(true);
     try {
-      console.log('Current signer data:', currentSigner);
+      console.log('handleSignatureSubmit - currentSigner:', currentSigner);
+      console.log('handleSignatureSubmit - currentSigner.signerId:', currentSigner.signerId);
+      console.log('handleSignatureSubmit - currentSigner.name:', currentSigner.name);
       
       const requestBody = {
         contractId,
