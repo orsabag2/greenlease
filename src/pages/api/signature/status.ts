@@ -24,9 +24,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const contractData = contractDoc.data();
     console.log('API: Contract data keys:', Object.keys(contractData));
-    console.log('API: Landlords:', contractData.landlords);
-    console.log('API: Tenants:', contractData.tenants);
-    console.log('API: Guarantors count:', contractData.guarantorsCount);
+    
+    // The actual contract data is in the 'answers' field
+    const answers = contractData.answers || contractData;
+    console.log('API: Answers keys:', Object.keys(answers));
+    console.log('API: Landlords:', answers.landlords);
+    console.log('API: Tenants:', answers.tenants);
+    console.log('API: Guarantors count:', answers.guarantorsCount);
 
     // Get all invitations for this contract
     const invitationsQuery = query(
@@ -45,8 +49,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const signers = [];
 
     // Add landlord
-    if (contractData.landlords && contractData.landlords.length > 0) {
-      contractData.landlords.forEach((landlord: any) => {
+    if (answers.landlords && answers.landlords.length > 0) {
+      answers.landlords.forEach((landlord: any) => {
         const invitation = invitations.find(inv => 
           inv.signerId === landlord.landlordId && inv.signerType === 'landlord'
         );
@@ -61,25 +65,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           invitationId: invitation?.id
         });
       });
-    } else if (contractData.landlordName) {
+    } else if (answers.landlordName) {
       const invitation = invitations.find(inv => 
-        inv.signerId === contractData.landlordId && inv.signerType === 'landlord'
+        inv.signerId === answers.landlordId && inv.signerType === 'landlord'
       );
       
       signers.push({
         role: 'המשכיר',
-        name: contractData.landlordName,
+        name: answers.landlordName,
         status: invitation?.status || 'not_sent',
-        email: invitation?.signerEmail || contractData.landlordEmail || '',
+        email: invitation?.signerEmail || answers.landlordEmail || '',
         signerType: 'landlord',
-        signerId: contractData.landlordId || '',
+        signerId: answers.landlordId || '',
         invitationId: invitation?.id
       });
     }
 
     // Add tenants
-    if (contractData.tenants && contractData.tenants.length > 0) {
-      contractData.tenants.forEach((tenant: any) => {
+    if (answers.tenants && answers.tenants.length > 0) {
+      answers.tenants.forEach((tenant: any) => {
         const invitation = invitations.find(inv => 
           inv.signerId === tenant.tenantIdNumber && inv.signerType === 'tenant'
         );
@@ -94,28 +98,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           invitationId: invitation?.id
         });
       });
-    } else if (contractData.tenantName) {
+    } else if (answers.tenantName) {
       const invitation = invitations.find(inv => 
-        inv.signerId === contractData.tenantIdNumber && inv.signerType === 'tenant'
+        inv.signerId === answers.tenantIdNumber && inv.signerType === 'tenant'
       );
       
       signers.push({
         role: 'השוכר',
-        name: contractData.tenantName,
+        name: answers.tenantName,
         status: invitation?.status || 'not_sent',
-        email: invitation?.signerEmail || contractData.tenantEmail || '',
+        email: invitation?.signerEmail || answers.tenantEmail || '',
         signerType: 'tenant',
-        signerId: contractData.tenantIdNumber || '',
+        signerId: answers.tenantIdNumber || '',
         invitationId: invitation?.id
       });
     }
 
     // Add guarantors
-    if (contractData.guarantorsCount && contractData.guarantorsCount > 0) {
-      for (let i = 1; i <= contractData.guarantorsCount; i++) {
-        const guarantorName = contractData[`guarantor${i}Name`];
-        const guarantorId = contractData[`guarantor${i}Id`];
-        const guarantorEmail = contractData[`guarantor${i}Email`];
+    if (answers.guarantorsCount && answers.guarantorsCount > 0) {
+      for (let i = 1; i <= answers.guarantorsCount; i++) {
+        const guarantorName = answers[`guarantor${i}Name`];
+        const guarantorId = answers[`guarantor${i}Id`];
+        const guarantorEmail = answers[`guarantor${i}Email`];
         
         if (guarantorName) {
           const invitation = invitations.find(inv => 
@@ -140,9 +144,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.status(200).json({
       signers,
       contractData: {
-        street: contractData.street || '',
-        buildingNumber: contractData.buildingNumber || '',
-        propertyCity: contractData.propertyCity || ''
+        street: answers.street || '',
+        buildingNumber: answers.buildingNumber || '',
+        propertyCity: answers.propertyCity || ''
       }
     });
   } catch (error) {
