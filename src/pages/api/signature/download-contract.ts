@@ -112,8 +112,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }),
     });
 
+    console.log('PDF response status:', pdfResponse.status);
+    console.log('PDF response headers:', Object.fromEntries(pdfResponse.headers.entries()));
+    
     if (!pdfResponse.ok) {
-      throw new Error('Failed to generate PDF');
+      const errorText = await pdfResponse.text();
+      console.log('PDF generation failed:', errorText);
+      console.log('PDF response status text:', pdfResponse.statusText);
+      
+      throw new Error(`Failed to generate PDF: ${pdfResponse.status} ${errorText}`);
     }
 
     const pdfBuffer = await pdfResponse.arrayBuffer();
@@ -140,11 +147,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 function addSignaturesToContract(contractHtml: string, signatures: any[]): string {
   let signedHtml = contractHtml;
   
+  console.log('Adding signatures to contract. Found signatures:', signatures.length);
+  console.log('Signature details:', signatures.map(s => ({ role: s.signerRole, name: s.signerName })));
+  
   // Add signatures to the contract
   signatures.forEach((signature) => {
     const signatureImage = signature.signatureImage;
     const signerName = signature.signerName;
     const signerRole = signature.signerRole;
+    
+    console.log('Processing signature for:', signerRole, signerName);
     
     // Find signature placeholders and replace them
     const placeholderPattern = new RegExp(`<span class="signature-placeholder">${signerRole}</span>`, 'g');
@@ -155,8 +167,12 @@ function addSignaturesToContract(contractHtml: string, signatures: any[]): strin
       </div>
     `;
     
+    const matches = signedHtml.match(placeholderPattern);
+    console.log(`Found ${matches ? matches.length : 0} placeholders for ${signerRole}`);
+    
     signedHtml = signedHtml.replace(placeholderPattern, signatureHtml);
   });
   
+  console.log('Signatures added successfully');
   return signedHtml;
 }
