@@ -6,6 +6,8 @@ import { auth, db } from '@/utils/firebase';
 import type { User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
+import SignatureInvitationModal from '@/components/SignatureInvitationModal';
+import { SignatureStatus } from '@/types/signature';
 // REMOVE: import { PDFDownloadLink } from '@react-pdf/renderer';
 // REMOVE: import ContractPdfDocument from './ContractPdfDocument';
 
@@ -21,8 +23,8 @@ if (typeof window !== 'undefined') {
   window.html2pdf = window.html2pdf || undefined;
 }
 
-// Helper function to format date as dd.mm.yyyy
-function formatDate(dateStr: string | undefined): string {
+  // Helper function to format date as dd.mm.yyyy
+  function formatDate(dateStr: string | undefined): string {
   if (!dateStr) return '_______';
   try {
     const date = new Date(dateStr);
@@ -110,7 +112,46 @@ export default function ContractPreviewPage() {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [paymentVerified, setPaymentVerified] = useState(false);
   const [loadingPayment, setLoadingPayment] = useState(true);
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [contractId, setContractId] = useState<string | null>(null);
   const router = useRouter();
+
+  // Function to send signature invitations
+  const sendSignatureInvitations = async (signers: SignatureStatus[]) => {
+    if (!contractId) {
+      alert('לא נמצא מזהה חוזה');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/signature/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contractId,
+          signers: signers.map(signer => ({
+            email: signer.email,
+            name: signer.name,
+            type: signer.signerType,
+            id: signer.signerId,
+            role: signer.role
+          }))
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send invitations');
+      }
+
+      const result = await response.json();
+      alert(`נשלחו ${result.invitations.length} הזמנות בהצלחה!`);
+      setShowSignatureModal(false);
+    } catch (error) {
+      console.error('Error sending invitations:', error);
+      alert('שגיאה בשליחת ההזמנות: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
+  };
 
   // Authentication check
   useEffect(() => {
@@ -141,6 +182,7 @@ export default function ContractPreviewPage() {
           return;
         }
         
+        setContractId(contractId);
         const contractDoc = await getDoc(doc(db, 'formAnswers', contractId));
         
         if (contractDoc.exists()) {
@@ -450,7 +492,16 @@ ${signatureLines}`;
               })() : 'תצוגה מקדימה של החוזה'}
             </div>
             <div className="flex gap-2">
-                          <button
+              <button
+                className="bg-[#38E18E] text-[#281D57] font-bold px-4 py-1.5 rounded-lg shadow hover:bg-[#2bc77a] transition-colors flex items-center justify-center min-w-[100px] text-sm"
+                onClick={() => setShowSignatureModal(true)}
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
+                </svg>
+                שלח לחתימה דיגיטלית
+              </button>
+              <button
                 className="bg-[#38E18E] text-[#281D57] font-bold px-4 py-1.5 rounded-lg shadow hover:bg-[#2bc77a] transition-colors flex items-center justify-center min-w-[100px] text-sm"
                 disabled={downloading}
                 onClick={async () => {
@@ -649,6 +700,17 @@ ${signatureLines}`;
         )}
         {/* Spacer to prevent content from being hidden under the sticky header */}
         <div className="print-spacer" style={{ height: 72 }} />
+        
+        {/* Signature Invitation Modal */}
+        {showSignatureModal && contractId && (
+          <SignatureInvitationModal
+            isOpen={showSignatureModal}
+            onClose={() => setShowSignatureModal(false)}
+            contractId={contractId}
+            contractData={meta}
+            onSendInvitations={sendSignatureInvitations}
+          />
+        )}
         
         {/* Contract Content */}
         <div className="contract-preview max-w-4xl mx-auto w-full px-8 whitespace-pre-wrap"

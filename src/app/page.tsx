@@ -214,13 +214,22 @@ export default function HomePage() {
         return 999; // Special value to indicate summary step
       }
       
-      // Check if we're editing from dashboard (paid contract)
+      // Check if we're editing from dashboard
       const editingFromDashboard = localStorage.getItem('editingFromDashboard') === 'true';
       const contractId = localStorage.getItem('currentContractId');
       
       if (editingFromDashboard && contractId) {
-        console.log('Initializing step to summary for paid contract editing');
-        return 999; // Special value to indicate summary step
+        // For in-progress contracts, go to the actual step where user left off
+        // For paid contracts, go to summary step
+        const savedStep = localStorage.getItem('contractStep');
+        if (savedStep !== null && !isNaN(Number(savedStep))) {
+          const stepNumber = Number(savedStep);
+          console.log('Initializing step from localStorage for dashboard editing:', stepNumber);
+          return stepNumber;
+        } else {
+          console.log('No saved step found, defaulting to step 0 for dashboard editing');
+          return 0;
+        }
       }
       
       const savedStep = localStorage.getItem('contractStep');
@@ -432,21 +441,84 @@ export default function HomePage() {
       setLoadingAuth(false);
       
       if (u) {
-        // Load user's landlord details and pre-fill the form
-        try {
-          const userDoc = await getDoc(doc(db, 'users', u.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            if (userData.landlordDetails) {
-              console.log('Loading landlord details from user profile:', userData.landlordDetails);
-              setAnswers(prev => ({
-                ...prev,
-                landlords: [userData.landlordDetails]
-              }));
-            }
+        // Check if user signed in via phone authentication
+        const isPhoneUser = u.providerData.some(provider => provider.providerId === 'phone');
+        
+        console.log('User authentication info:', {
+          uid: u.uid,
+          providers: u.providerData.map(p => p.providerId),
+          isPhoneUser: isPhoneUser
+        });
+        
+        // For phone users, only clear localStorage if they're not editing from dashboard
+        if (isPhoneUser) {
+          const editingFromDashboard = localStorage.getItem('editingFromDashboard') === 'true';
+          const contractId = localStorage.getItem('currentContractId');
+          
+          // For fresh phone sign-ins, always clear localStorage unless explicitly editing from dashboard
+          if (!editingFromDashboard) {
+            // Fresh phone sign-in - clear localStorage to ensure fresh start
+            console.log('Phone user detected - fresh sign-in, clearing localStorage to ensure fresh start');
+            console.log('Before clearing - localStorage state:', {
+              contractMeta: localStorage.getItem('contractMeta'),
+              contractStep: localStorage.getItem('contractStep'),
+              contractInnerStep: localStorage.getItem('contractInnerStep'),
+              currentContractId: localStorage.getItem('currentContractId'),
+              editingFromDashboard: localStorage.getItem('editingFromDashboard')
+            });
+            
+            localStorage.removeItem('contractMeta');
+            localStorage.removeItem('contractStep');
+            localStorage.removeItem('contractInnerStep');
+            localStorage.removeItem('currentContractId');
+            localStorage.removeItem('editingFromDashboard');
+            
+            // Reset answers to initial state
+            setAnswers({
+              landlords: [{}],
+              tenants: [{}],
+            });
+            
+            // Reset step to beginning
+            setStep(0);
+            setInnerStep(0);
+            
+            // Clear session flags to allow modal to show if needed
+            sessionStorage.removeItem('hasCheckedUnfinishedContract');
+            localStorage.removeItem('hasCheckedUnfinishedContract');
+            sessionStorage.removeItem('modalLastShownTime');
+            
+            console.log('After clearing - localStorage state:', {
+              contractMeta: localStorage.getItem('contractMeta'),
+              contractStep: localStorage.getItem('contractStep'),
+              contractInnerStep: localStorage.getItem('contractInnerStep'),
+              currentContractId: localStorage.getItem('currentContractId'),
+              editingFromDashboard: localStorage.getItem('editingFromDashboard')
+            });
+          } else {
+            // Phone user editing from dashboard - preserve contract data
+            console.log('Phone user detected - editing from dashboard, preserving contract data');
+            console.log('Contract ID:', contractId);
+            console.log('Editing from dashboard flag:', editingFromDashboard);
+            // Don't clear localStorage - let the existing contract editing logic handle it
           }
-        } catch (error) {
-          console.error('Error loading user landlord details:', error);
+        } else {
+          // For Gmail users, try to load landlord details
+          try {
+            const userDoc = await getDoc(doc(db, 'users', u.uid));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              if (userData.landlordDetails) {
+                console.log('Loading landlord details from user profile:', userData.landlordDetails);
+                setAnswers(prev => ({
+                  ...prev,
+                  landlords: [userData.landlordDetails]
+                }));
+              }
+            }
+          } catch (error) {
+            console.error('Error loading user landlord details:', error);
+          }
         }
       }
       
@@ -648,9 +720,9 @@ export default function HomePage() {
     console.log('isEditingPaidContract changed:', isEditingPaidContract);
   }, [isEditingPaidContract]);
 
-  // Check if we're editing from dashboard (which means it's a paid contract)
+  // Check if we're editing from dashboard
   const editingFromDashboard = typeof window !== 'undefined' && localStorage.getItem('editingFromDashboard') === 'true';
-  const shouldHidePaymentSteps = isEditingPaidContract || editingFromDashboard;
+  const shouldHidePaymentSteps = isEditingPaidContract; // Only hide payment steps for paid contracts, not all dashboard editing
 
   // Handle special summary step value
   useEffect(() => {
@@ -692,13 +764,13 @@ export default function HomePage() {
 
   // Force landing on summary step when editing paid contract
   useEffect(() => {
-    if (shouldHidePaymentSteps && grouped.length > 0 && step !== grouped.length && step !== 999 && !isEditingStep) {
+    if (isEditingPaidContract && grouped.length > 0 && step !== grouped.length && step !== 999 && !isEditingStep) {
       console.log('Forcing landing on summary step for paid contract editing - current step:', step, 'summary step:', grouped.length);
       setStep(grouped.length); // Force to summary step
       // Update localStorage to reflect the summary step
       localStorage.setItem('contractStep', grouped.length.toString());
     }
-  }, [shouldHidePaymentSteps, grouped.length, step, isEditingStep]);
+  }, [isEditingPaidContract, grouped.length, step, isEditingStep]);
 
   // Stepper UI
   function Stepper({ currentStep = 0, showSignInModal = false }) {
@@ -1365,7 +1437,12 @@ export default function HomePage() {
       if (!user) return;
       
       // Don't create new contracts if user was on final step (prevents creating in_progress after payment)
-      if (wasOnFinalStep) return;
+      // But allow creation if user is starting fresh (no contract ID in localStorage)
+      const currentContractId = localStorage.getItem('currentContractId');
+      if (wasOnFinalStep && currentContractId) {
+        console.log('Skipping contract creation - user was on final step and has existing contract');
+        return;
+      }
       
       // Save immediately when user starts filling any field
       const saveAnswersToFirestore = async () => {
@@ -1375,16 +1452,22 @@ export default function HomePage() {
           
           if (!contractId) {
             // Create a new contract document
-            const newContractRef = await addDoc(collection(db, 'formAnswers'), {
+            const contractData = {
               userId: user.uid,
               answers,
               step,
               innerStep,
               updatedAt: new Date(),
               status: 'in_progress',
-            });
+            };
+            
+            console.log('Creating new contract with data:', contractData);
+            
+            const newContractRef = await addDoc(collection(db, 'formAnswers'), contractData);
             contractId = newContractRef.id;
             localStorage.setItem('currentContractId', contractId);
+            
+            console.log('New contract created with ID:', contractId);
           } else {
             // Check if this is an edit of a paid contract
             const contractDoc = await getDoc(doc(db, 'formAnswers', contractId));
@@ -1432,6 +1515,12 @@ export default function HomePage() {
       };
       
       // Save on any change, even if minimal data
+      console.log('Save effect triggered:', {
+        hasUser: !!user,
+        answersKeys: Object.keys(answers),
+        wasOnFinalStep,
+        currentContractId: localStorage.getItem('currentContractId')
+      });
       saveAnswersToFirestore();
     }, [user, answers, wasOnFinalStep]);
 
@@ -1727,7 +1816,7 @@ export default function HomePage() {
           <Stepper currentStep={step} showSignInModal={showSignInModal} />
           {user && (
             <main className="flex flex-col items-center min-h-screen" style={{ 
-              paddingTop: 0,
+              paddingTop: 96,
               paddingBottom: isMobile ? 4 : 0,
               background: isMobile ? '#fff' : '#F8F8FC',
               minHeight: '100vh',

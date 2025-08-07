@@ -27,6 +27,9 @@ export const metadata: Metadata = {
     icon: '/favicon.png',
     apple: '/apple-touch-icon.png',
   },
+  other: {
+    'permissions-policy': 'unload=*, geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()'
+  }
 };
 
 export default function RootLayout({

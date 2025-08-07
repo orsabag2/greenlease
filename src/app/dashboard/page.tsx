@@ -116,10 +116,21 @@ export default function DashboardPage() {
             
             // Use the status from Firestore, but fallback to payment status for backward compatibility
             let status: 'in_progress' | 'paid' | 'completed' | 'archived' = data.status || 'in_progress';
-            // Only override with payment status if the status is not explicitly set to 'archived'
-            if (data.paymentStatus === 'paid' && status !== 'archived') {
+            
+            // Only override with payment status if the status is not explicitly set and payment status is 'paid'
+            // This prevents new contracts from being marked as 'paid' incorrectly
+            if (data.paymentStatus === 'paid' && !data.status && status !== 'archived') {
               status = 'paid';
             }
+            
+            console.log('Contract status determination:', {
+              contractId: doc.id,
+              firestoreStatus: data.status,
+              paymentStatus: data.paymentStatus,
+              finalStatus: status,
+              hasAnswers: !!data.answers,
+              answersKeys: data.answers ? Object.keys(data.answers) : []
+            });
             
             contractsData.push({
               id: doc.id,
@@ -728,10 +739,10 @@ export default function DashboardPage() {
                                       localStorage.setItem('contractInnerStep', '1');
                                     }
                                     
-                                    // Small delay to ensure localStorage is set before navigation
+                                                                                                              // Small delay to ensure localStorage is set before navigation
                                     setTimeout(() => {
-                                      // Navigate to summary page instead of main form
-                                      router.push('/?step=summary');
+                                      // Navigate to main page - it will automatically restore to the correct step
+                                      router.push('/');
                                     }, 100);
                                   }}
                                   className="w-full bg-gray-100 text-gray-700 px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"

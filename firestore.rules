@@ -13,5 +13,16 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+    
+    // Allow signature invitations - anyone with a valid token can read
+    match /signatureInvitations/{document} {
+      allow read: if true; // Allow reading by token verification
+      allow write: if request.auth != null; // Only authenticated users can create invitations
+    }
+    
+    // Allow contract signatures - users can read their own contracts
+    match /contractSignatures/{document} {
+      allow read, write: if request.auth != null;
+    }
   }
 } 

@@ -28,8 +28,16 @@ const PhoneSignInPage: React.FC = () => {
     const unsubscribe = auth.onAuthStateChanged((user: User | null) => {
       if (user) {
         console.log('✅ User authenticated, redirecting to main app');
-        // Redirect directly to main app
-        router.push('/');
+        
+        // For phone users, ensure we redirect to a clean main page
+        const isPhoneUser = user.providerData.some(provider => provider.providerId === 'phone');
+        if (isPhoneUser) {
+          // Clear any URL parameters to ensure clean start
+          router.push('/');
+        } else {
+          // For Gmail users, normal redirect
+          router.push('/');
+        }
       }
     });
 
@@ -39,6 +47,32 @@ const PhoneSignInPage: React.FC = () => {
   const handlePhoneSignInSuccess = (user: any) => {
     console.log('✅ Phone sign-in successful!');
     console.log('Signed in user:', user);
+    
+    // Only clear localStorage if user is not editing from dashboard
+    const editingFromDashboard = localStorage.getItem('editingFromDashboard') === 'true';
+    const contractId = localStorage.getItem('currentContractId');
+    
+    if (!editingFromDashboard && !contractId) {
+      // Fresh phone sign-in - clear localStorage to ensure fresh start
+      localStorage.removeItem('contractMeta');
+      localStorage.removeItem('contractStep');
+      localStorage.removeItem('contractInnerStep');
+      localStorage.removeItem('currentContractId');
+      localStorage.removeItem('editingFromDashboard');
+      
+      // Clear session flags
+      sessionStorage.removeItem('hasCheckedUnfinishedContract');
+      localStorage.removeItem('hasCheckedUnfinishedContract');
+      sessionStorage.removeItem('modalLastShownTime');
+      
+      console.log('✅ Cleared localStorage for fresh phone user experience');
+    } else {
+      // Phone user editing from dashboard - preserve contract data
+      console.log('✅ Phone user editing from dashboard - preserving contract data');
+      console.log('✅ Contract ID:', contractId);
+      console.log('✅ Editing from dashboard flag:', editingFromDashboard);
+    }
+    
     // The redirect will happen automatically via onAuthStateChanged
   };
 
