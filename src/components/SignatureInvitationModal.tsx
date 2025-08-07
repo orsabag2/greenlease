@@ -465,11 +465,11 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
                         הוסיפו כתובת מייל
                       </button>
                     </>
-                  ) : (
-                    <>
-                      <span className="text-sm text-gray-600 px-3 py-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-                        {signer.email}
-                      </span>
+                                                ) : (
+                                <>
+                                  <span className="text-sm text-gray-600 px-3 py-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                                    {signer.email && signer.email !== 'direct-sign@greenlease.me' ? signer.email : ''}
+                                  </span>
                       {(signer.status === 'sent' || signer.status === 'not_sent') && signer.signerType !== 'landlord' && (
                         <button
                           onClick={() => resendInvitation(index)}
