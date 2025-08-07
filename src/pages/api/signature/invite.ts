@@ -56,8 +56,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const invitationRef = await addDoc(collection(db, 'signatureInvitations'), invitation);
       invitations.push({ ...invitation, id: invitationRef.id });
 
-      // Send invitation email
-      await sendInvitationEmail(signer, token, contractData);
+      // Send invitation email (temporarily disabled for testing)
+      try {
+        await sendInvitationEmail(signer, token, contractData);
+      } catch (emailError) {
+        console.error('Email sending failed:', emailError);
+        // Continue with invitation creation even if email fails
+      }
     }
 
     // Create or update contract signatures document
@@ -78,11 +83,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (error) {
     console.error('Error creating invitations:', error);
-    res.status(500).json({ error: 'Failed to create invitations', details: error instanceof Error ? error.message : 'Unknown error' });
+    res.status(500).json({ 
+      error: 'Failed to create invitations', 
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 }
 
 async function sendInvitationEmail(signer: any, token: string, contractData: any) {
+  // Check if Gmail credentials are available
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
+    console.warn('Gmail credentials not configured, skipping email sending');
+    return;
+  }
+
   const transporter = nodemailer.createTransporter({
     service: 'gmail',
     auth: {

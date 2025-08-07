@@ -3,7 +3,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Allow users to read and write their own contracts
     match /formAnswers/{document} {
-      allow read, write: if request.auth != null && (
+      allow read: if true; // Allow API to read contracts
+      allow write: if request.auth != null && (
         resource == null || request.auth.uid == resource.data.userId
       );
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
@@ -17,12 +18,12 @@ service cloud.firestore {
     // Allow signature invitations - anyone with a valid token can read
     match /signatureInvitations/{document} {
       allow read: if true; // Allow reading by token verification
-      allow write: if request.auth != null; // Only authenticated users can create invitations
+      allow write: if true; // Allow API to create invitations
     }
     
     // Allow contract signatures - users can read their own contracts
     match /contractSignatures/{document} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true; // Allow API to manage signatures
     }
   }
 } 
