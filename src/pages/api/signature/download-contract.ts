@@ -88,6 +88,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('PDFShift API Key exists:', !!process.env.PDFSHIFT_API_KEY);
     console.log('PDFShift API Key (first 10 chars):', process.env.PDFSHIFT_API_KEY?.substring(0, 10) + '...');
     
+    // Test with a simple HTML first
+    console.log('Testing with simple HTML first...');
+    const simpleHtml = '<html><body><h1>Test PDF</h1><p>This is a test.</p></body></html>';
+    
+    const testResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
+      method: 'POST',
+      headers: {
+        'X-API-Key': process.env.PDFSHIFT_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        source: simpleHtml,
+        format: 'A4',
+        margin: '1cm',
+        landscape: false,
+      }),
+    });
+    
+    console.log('Test response status:', testResponse.status);
+    if (!testResponse.ok) {
+      const testError = await testResponse.text();
+      console.log('Test response error:', testError);
+      throw new Error(`PDFShift test failed: ${testResponse.status} - ${testError}`);
+    }
+    
+    console.log('Test successful, now trying with actual contract...');
+    
     const pdfResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
       headers: {
