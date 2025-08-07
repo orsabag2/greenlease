@@ -70,15 +70,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Convert to PDF
     console.log('Converting to PDF...');
     console.log('PDFShift API Key exists:', !!process.env.PDFSHIFT_API_KEY);
+    console.log('PDFShift API Key (first 10 chars):', process.env.PDFSHIFT_API_KEY?.substring(0, 10) + '...');
     
-          if (!process.env.PDFSHIFT_API_KEY) {
-        console.log('PDFShift API key not found, returning HTML instead');
-        // Return HTML instead of PDF for debugging
-        res.setHeader('Content-Type', 'text/html');
-        res.setHeader('Content-Disposition', `attachment; filename="contract_${contractId}.html"`);
-        res.send(signedContractHtml);
-        return;
-      }
+    if (!process.env.PDFSHIFT_API_KEY) {
+      console.log('PDFShift API key not found, returning HTML instead');
+      // Return HTML instead of PDF for debugging
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Content-Disposition', `attachment; filename="contract_${contractId}.html"`);
+      res.send(signedContractHtml);
+      return;
+    }
     
     const pdfResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
@@ -118,10 +119,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     console.log('PDF response status:', pdfResponse.status);
+    console.log('PDF response headers:', Object.fromEntries(pdfResponse.headers.entries()));
     
     if (!pdfResponse.ok) {
       const errorText = await pdfResponse.text();
       console.log('PDF generation failed:', errorText);
+      console.log('PDF response status text:', pdfResponse.statusText);
       
       // Check if it's an API key error
       if (pdfResponse.status === 401 && errorText.includes('API Key')) {
@@ -131,6 +134,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         res.setHeader('Content-Disposition', `attachment; filename="contract_${contractId}.html"`);
         res.send(signedContractHtml);
         return;
+      }
+      
+      // For any other error, still try to return PDF if possible
+      console.log('Attempting to get PDF despite error...');
+      try {
+        const pdfBuffer = await pdfResponse.arrayBuffer();
+        if (pdfBuffer.byteLength > 0) {
+          console.log('PDF generated despite error, size:', pdfBuffer.byteLength);
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="contract_${contractId}.pdf"`);
+          res.setHeader('Content-Length', pdfBuffer.byteLength);
+          res.send(Buffer.from(pdfBuffer));
+          return;
+        }
+      } catch (bufferError) {
+        console.log('Could not get PDF buffer:', bufferError);
       }
       
       throw new Error(`Failed to generate PDF: ${pdfResponse.status} ${errorText}`);
