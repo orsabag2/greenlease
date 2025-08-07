@@ -161,6 +161,7 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
       if (response.ok) {
         const data = await response.json();
         console.log('Fetched signers:', data.signers);
+        console.log('First signer details:', data.signers[0]);
         setSigners(data.signers);
       } else {
         console.log('API failed, using fallback data');
@@ -258,6 +259,8 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
 
     setSigning(true);
     try {
+      console.log('Current signer data:', currentSigner);
+      
       const requestBody = {
         contractId,
         signerId: currentSigner.signerId,
