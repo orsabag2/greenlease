@@ -38,8 +38,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Get all signatures for this contract
     console.log('Fetching signatures for contract:', contractId);
-    const signaturesResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/signature/get-signatures?contractId=${contractId}`);
-    const signaturesData = await signaturesResponse.json();
+    console.log('Signatures URL:', `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/signature/get-signatures?contractId=${contractId}`);
+    
+    let signaturesResponse;
+    let signaturesData;
+    try {
+      signaturesResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/signature/get-signatures?contractId=${contractId}`);
+      signaturesData = await signaturesResponse.json();
+    } catch (error) {
+      console.log('Error fetching signatures:', error);
+      throw error;
+    }
     
     console.log('Signatures response status:', signaturesResponse.status);
     console.log('Signatures data:', signaturesData);
