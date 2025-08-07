@@ -17,32 +17,71 @@ const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
-  const [lastX, setLastX] = useState(0);
-  const [lastY, setLastY] = useState(0);
 
-  const getCoordinates = useCallback((e: MouseEvent | TouchEvent): { x: number; y: number } => {
+  // Initialize canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set canvas dimensions
+    canvas.width = width;
+    canvas.height = height;
+
+    // Set drawing style
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Fill with white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+
+    console.log('Canvas initialized with dimensions:', { width, height });
+  }, [width, height]);
+
+  // Get mouse/touch coordinates relative to canvas
+  const getCoordinates = (e: React.MouseEvent | React.TouchEvent) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
 
     const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    let clientX: number, clientY: number;
+
+    if ('touches' in e) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
 
     return {
       x: clientX - rect.left,
       y: clientY - rect.top
     };
-  }, []);
+  };
 
-  const startDrawing = useCallback((e: MouseEvent | TouchEvent) => {
+  // Start drawing
+  const handleStart = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+
     setIsDrawing(true);
     const { x, y } = getCoordinates(e);
-    setLastX(x);
-    setLastY(y);
-  }, [getCoordinates]);
+    
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    console.log('Started drawing at:', { x, y });
+  };
 
-  const draw = useCallback((e: MouseEvent | TouchEvent) => {
+  // Draw
+  const handleMove = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     if (!isDrawing) return;
 
@@ -52,16 +91,15 @@ const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
 
     const { x, y } = getCoordinates(e);
     
-    ctx.beginPath();
-    ctx.moveTo(lastX, lastY);
     ctx.lineTo(x, y);
     ctx.stroke();
-    
-    setLastX(x);
-    setLastY(y);
-  }, [isDrawing, lastX, lastY, getCoordinates]);
+    console.log('Drawing to:', { x, y });
+  };
 
-  const stopDrawing = useCallback(() => {
+  // Stop drawing
+  const handleEnd = () => {
+    if (!isDrawing) return;
+    
     setIsDrawing(false);
     setHasSignature(true);
     
@@ -70,63 +108,40 @@ const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
     if (canvas) {
       const signatureData = canvas.toDataURL('image/png');
       onSignatureChange(signatureData);
+      console.log('Signature saved');
     }
-  }, [onSignatureChange]);
+  };
 
-  useEffect(() => {
+  // Clear canvas
+  const clearCanvas = () => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Set canvas size
-    canvas.width = width;
-    canvas.height = height;
-
-    // Set drawing style
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    
-    // Clear canvas with white background
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Mouse events
-    canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('mouseout', stopDrawing);
-
-    // Touch events for mobile
-    canvas.addEventListener('touchstart', startDrawing, { passive: false });
-    canvas.addEventListener('touchmove', draw, { passive: false });
-    canvas.addEventListener('touchend', stopDrawing);
-
-    return () => {
-      canvas.removeEventListener('mousedown', startDrawing);
-      canvas.removeEventListener('mousemove', draw);
-      canvas.removeEventListener('mouseup', stopDrawing);
-      canvas.removeEventListener('mouseout', stopDrawing);
-      canvas.removeEventListener('touchstart', startDrawing);
-      canvas.removeEventListener('touchmove', draw);
-      canvas.removeEventListener('touchend', stopDrawing);
-    };
-  }, [startDrawing, draw, stopDrawing, width, height]);
-
-  const clearCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
     
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
     setHasSignature(false);
     onSignatureChange('');
-  }, [onSignatureChange]);
+    console.log('Canvas cleared');
+  };
+
+  // Test function
+  const testCanvas = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+
+    console.log('Testing canvas...');
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(10, 10);
+    ctx.lineTo(100, 100);
+    ctx.stroke();
+    console.log('Test line drawn');
+  };
 
   return (
     <div className={`signature-container ${className}`}>
@@ -144,6 +159,13 @@ const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
               height: `${height}px`,
               backgroundColor: '#ffffff'
             }}
+            onMouseDown={handleStart}
+            onMouseMove={handleMove}
+            onMouseUp={handleEnd}
+            onMouseLeave={handleEnd}
+            onTouchStart={handleStart}
+            onTouchMove={handleMove}
+            onTouchEnd={handleEnd}
           />
           {!hasSignature && (
             <div 
@@ -163,6 +185,14 @@ const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
           style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
         >
           נקה חתימה
+        </button>
+        
+        <button
+          onClick={testCanvas}
+          className="px-4 py-2 text-sm bg-blue-200 text-blue-700 rounded-lg hover:bg-blue-300 transition-colors"
+          style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+        >
+          בדוק קנבס
         </button>
         
         {hasSignature && (
