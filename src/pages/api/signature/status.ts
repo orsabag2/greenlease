@@ -48,53 +48,58 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Build signers list with current status
     const signers = [];
 
-    // Add landlord
-    console.log('API: Processing landlords...');
-    console.log('API: answers.landlords:', answers.landlords);
-    console.log('API: answers.landlordName:', answers.landlordName);
-    console.log('API: answers.landlordId:', answers.landlordId);
-    
-    if (answers.landlords && answers.landlords.length > 0) {
-      answers.landlords.forEach((landlord: any) => {
-        console.log('API: Processing landlord:', landlord);
-        const invitation = invitations.find(inv => 
-          inv.signerId === landlord.landlordId && inv.signerType === 'landlord'
-        );
-        
-        const signer = {
-          role: 'המשכיר',
-          name: landlord.landlordName || '',
-          status: invitation?.status || 'not_sent',
-          email: invitation?.signerEmail || landlord.landlordEmail || '',
-          signerType: 'landlord',
-          signerId: landlord.landlordId || '',
-          invitationId: invitation?.id
-        };
-        
-        console.log('API: Created landlord signer:', signer);
-        signers.push(signer);
-      });
-    } else if (answers.landlordName) {
-      console.log('API: Using direct landlord fields');
-      const invitation = invitations.find(inv => 
-        inv.signerId === answers.landlordId && inv.signerType === 'landlord'
-      );
-      
-      const signer = {
-        role: 'המשכיר',
-        name: answers.landlordName,
-        status: invitation?.status || 'not_sent',
-        email: invitation?.signerEmail || answers.landlordEmail || '',
-        signerType: 'landlord',
-        signerId: answers.landlordId || '',
-        invitationId: invitation?.id
-      };
-      
-      console.log('API: Created landlord signer:', signer);
-      signers.push(signer);
-    } else {
-      console.log('API: No landlord data found');
-    }
+                    // Add landlord
+                console.log('API: Processing landlords...');
+                console.log('API: answers.landlords:', answers.landlords);
+                console.log('API: answers.landlordName:', answers.landlordName);
+                console.log('API: answers.landlordId:', answers.landlordId);
+                
+                if (answers.landlords && answers.landlords.length > 0) {
+                  answers.landlords.forEach((landlord: any, index: number) => {
+                    console.log('API: Processing landlord:', landlord);
+                    
+                    // Generate a unique signerId if landlordId is empty
+                    const signerId = landlord.landlordId || `landlord-${index}-${landlord.landlordName || 'unknown'}`;
+                    
+                    const invitation = invitations.find(inv => 
+                      inv.signerId === signerId && inv.signerType === 'landlord'
+                    );
+                    
+                    const signer = {
+                      role: 'המשכיר',
+                      name: landlord.landlordName || '',
+                      status: invitation?.status || 'not_sent',
+                      email: invitation?.signerEmail || landlord.landlordEmail || '',
+                      signerType: 'landlord',
+                      signerId: signerId,
+                      invitationId: invitation?.id
+                    };
+                    
+                    console.log('API: Created landlord signer:', signer);
+                    signers.push(signer);
+                  });
+                } else if (answers.landlordName) {
+                  console.log('API: Using direct landlord fields');
+                  const signerId = answers.landlordId || `landlord-single-${answers.landlordName}`;
+                  const invitation = invitations.find(inv => 
+                    inv.signerId === signerId && inv.signerType === 'landlord'
+                  );
+                  
+                  const signer = {
+                    role: 'המשכיר',
+                    name: answers.landlordName,
+                    status: invitation?.status || 'not_sent',
+                    email: invitation?.signerEmail || answers.landlordEmail || '',
+                    signerType: 'landlord',
+                    signerId: signerId,
+                    invitationId: invitation?.id
+                  };
+                  
+                  console.log('API: Created landlord signer:', signer);
+                  signers.push(signer);
+                } else {
+                  console.log('API: No landlord data found');
+                }
 
                     // Add tenants
                 if (answers.tenants && answers.tenants.length > 0) {
