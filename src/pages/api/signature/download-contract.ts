@@ -4,6 +4,9 @@ import { doc, getDoc } from 'firebase/firestore';
 import contractMerge from '@/utils/contractMerge';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  console.log('Download contract API called with method:', req.method);
+  console.log('Download contract API request body:', req.body);
+  
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
@@ -11,41 +14,63 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { contractId, signers } = req.body;
 
+  console.log('Extracted fields:', { contractId, signersCount: signers?.length });
+
   if (!contractId || !signers) {
+    console.log('Missing required fields:', { contractId: !!contractId, signers: !!signers });
     res.status(400).json({ error: 'Missing required fields' });
     return;
   }
 
   try {
+    console.log('Getting contract data for:', contractId);
+    
     // Get contract data
     const contractDoc = await getDoc(doc(db, 'formAnswers', contractId));
     if (!contractDoc.exists()) {
+      console.log('Contract not found:', contractId);
       return res.status(404).json({ error: 'Contract not found' });
     }
 
     const contractData = contractDoc.data();
     const answers = contractData.answers || contractData;
+    console.log('Contract data retrieved, answers keys:', Object.keys(answers));
 
     // Get all signatures for this contract
+    console.log('Fetching signatures for contract:', contractId);
     const signaturesResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/signature/get-signatures?contractId=${contractId}`);
     const signaturesData = await signaturesResponse.json();
     
+    console.log('Signatures response status:', signaturesResponse.status);
+    console.log('Signatures data:', signaturesData);
+    
     if (!signaturesResponse.ok) {
+      console.log('Failed to fetch signatures:', signaturesData);
       throw new Error('Failed to fetch signatures');
     }
 
     const signatures = signaturesData.signatures || [];
+    console.log('Found signatures:', signatures.length);
 
     // Generate signed contract HTML
+    console.log('Fetching template...');
     const templateResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/data/master-template.txt`);
     const template = await templateResponse.text();
+    console.log('Template fetched, length:', template.length);
     
+    console.log('Merging contract...');
     const contractHtml = contractMerge(template, answers);
+    console.log('Contract merged, length:', contractHtml.length);
     
     // Add signatures to the HTML
+    console.log('Adding signatures to contract...');
     const signedContractHtml = addSignaturesToContract(contractHtml, signatures);
+    console.log('Signatures added, final length:', signedContractHtml.length);
 
     // Convert to PDF
+    console.log('Converting to PDF...');
+    console.log('PDFShift API Key exists:', !!process.env.PDFSHIFT_API_KEY);
+    
     const pdfResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
       headers: {
@@ -74,11 +99,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }),
     });
 
+    console.log('PDF response status:', pdfResponse.status);
+    
     if (!pdfResponse.ok) {
-      throw new Error('Failed to generate PDF');
+      const errorText = await pdfResponse.text();
+      console.log('PDF generation failed:', errorText);
+      throw new Error(`Failed to generate PDF: ${pdfResponse.status} ${errorText}`);
     }
 
     const pdfBuffer = await pdfResponse.arrayBuffer();
+    console.log('PDF generated, size:', pdfBuffer.byteLength);
 
     // Set response headers for file download
     res.setHeader('Content-Type', 'application/pdf');

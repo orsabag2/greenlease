@@ -3,6 +3,9 @@ import { db } from '@/utils/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  console.log('Get signatures API called with method:', req.method);
+  console.log('Get signatures API query:', req.query);
+  
   if (req.method !== 'GET') {
     res.status(405).json({ error: 'Method not allowed' });
     return;
@@ -10,12 +13,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { contractId } = req.query;
 
+  console.log('Contract ID from query:', contractId);
+
   if (!contractId || typeof contractId !== 'string') {
+    console.log('Missing or invalid contract ID');
     res.status(400).json({ error: 'Missing contract ID' });
     return;
   }
 
   try {
+    console.log('Querying signatures for contract:', contractId);
+    
     // Get all signed invitations for this contract
     const invitationsQuery = query(
       collection(db, 'signatureInvitations'),
@@ -28,6 +36,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       id: doc.id,
       ...doc.data()
     }));
+
+    console.log('Found signatures:', signatures.length);
+    console.log('Signature details:', signatures.map(s => ({ id: s.id, signerName: s.signerName, signerRole: s.signerRole })));
 
     res.status(200).json({
       signatures,
