@@ -85,10 +85,14 @@ const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
     canvas.height = height;
 
     // Set drawing style
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
+    
+    // Clear canvas with white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // Mouse events
     canvas.addEventListener('mousedown', startDrawing);
@@ -130,15 +134,26 @@ const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
         <p className="text-sm text-gray-600 mb-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
           חתום כאן:
         </p>
-        <canvas
-          ref={canvasRef}
-          className="border-2 border-gray-300 rounded-lg cursor-crosshair bg-white"
-          style={{ 
-            touchAction: 'none',
-            width: `${width}px`,
-            height: `${height}px`
-          }}
-        />
+        <div className="relative">
+          <canvas
+            ref={canvasRef}
+            className="border-2 border-gray-300 rounded-lg cursor-crosshair bg-white"
+            style={{ 
+              touchAction: 'none',
+              width: `${width}px`,
+              height: `${height}px`,
+              backgroundColor: '#ffffff'
+            }}
+          />
+          {!hasSignature && (
+            <div 
+              className="absolute inset-0 flex items-center justify-center pointer-events-none text-gray-400"
+              style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+            >
+              חתום פה
+            </div>
+          )}
+        </div>
       </div>
       
       <div className="flex gap-2 items-center">

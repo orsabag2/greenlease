@@ -32,6 +32,7 @@ export default function SignaturePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
 
   useEffect(() => {
     const verifyToken = async () => {
@@ -47,25 +48,39 @@ export default function SignaturePage() {
         
         // Generate contract text
         if (data.contractData) {
-          // Load template and merge with contract data
-          try {
-            const templateResponse = await fetch('/data/master-template.txt');
-            const template = await templateResponse.text();
-            
-            // Prepare data for contractMerge (similar to ContractPreviewPage)
-            const rawData = data.contractData.answers || data.contractData;
-            const contractData = {
-              ...rawData,
-              ...(Array.isArray(rawData.landlords) && rawData.landlords[0] ? rawData.landlords[0] : {}),
-              ...(Array.isArray(rawData.tenants) && rawData.tenants[0] ? rawData.tenants[0] : {}),
-            };
-            
-            const mergedContract = contractMerge(template, contractData);
-            setContractText(mergedContract);
-          } catch (templateError) {
-            console.error('Error loading template:', templateError);
-            setError('שגיאה בטעינת תבנית החוזה');
-          }
+                      // Load template and merge with contract data
+            try {
+              console.log('Starting template loading...');
+              const templateResponse = await fetch('/data/master-template.txt');
+              console.log('Template response status:', templateResponse.status);
+              
+              if (!templateResponse.ok) {
+                throw new Error(`Template fetch failed: ${templateResponse.status}`);
+              }
+              
+              const template = await templateResponse.text();
+              console.log('Template loaded, length:', template.length);
+              console.log('Template first 100 chars:', template.substring(0, 100));
+              
+              // Prepare data for contractMerge (similar to ContractPreviewPage)
+              const rawData = data.contractData.answers || data.contractData;
+              console.log('Signature page - rawData:', rawData);
+              
+              const contractData = {
+                ...rawData,
+                ...(Array.isArray(rawData.landlords) && rawData.landlords[0] ? rawData.landlords[0] : {}),
+                ...(Array.isArray(rawData.tenants) && rawData.tenants[0] ? rawData.tenants[0] : {}),
+              };
+              console.log('Signature page - contractData:', contractData);
+              console.log('About to call contractMerge...');
+              
+              const mergedContract = contractMerge(template, contractData);
+              console.log('ContractMerge completed, length:', mergedContract.length);
+              setContractText(mergedContract);
+            } catch (templateError) {
+              console.error('Error in template processing:', templateError);
+              setError(`שגיאה בטעינת תבנית החוזה: ${templateError instanceof Error ? templateError.message : 'Unknown error'}`);
+            }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error');
@@ -190,114 +205,221 @@ export default function SignaturePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <img 
-              src="/logo@2x.png" 
-              alt="GreenLease" 
-              className="h-12 mx-auto mb-4"
-            />
-            <h1 className="text-3xl font-bold text-[#281D57] mb-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-              חתימה דיגיטלית על החוזה
-            </h1>
-            <p className="text-gray-600" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-              אנא קרא את החוזה בעיון לפני החתימה
-            </p>
-          </div>
-          
-          {/* Signer Details */}
-          <div className="bg-gray-50 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-semibold mb-4 text-[#281D57]" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-              פרטי החותם:
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <span className="font-medium" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>שם:</span>
-                <span className="mr-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>{invitation.signerName}</span>
-              </div>
-              <div>
-                <span className="font-medium" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>תעודת זהות:</span>
-                <span className="mr-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>{invitation.signerId}</span>
-              </div>
-              <div>
-                <span className="font-medium" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>תפקיד:</span>
-                <span className="mr-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>{invitation.signerRole}</span>
-              </div>
-              <div>
-                <span className="font-medium" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>מייל:</span>
-                <span className="mr-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>{invitation.signerEmail}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Contract Preview */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4 text-[#281D57]" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-              החוזה:
-            </h2>
-            <div 
-              className="border rounded-lg p-6 bg-white max-h-96 overflow-y-auto"
-              style={{ fontFamily: 'Frank Ruhl Libre, Arial, sans-serif' }}
-              dangerouslySetInnerHTML={{ __html: contractText }}
-            />
-          </div>
-
-          {/* Signature Section */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4 text-[#281D57]" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-              חתימה דיגיטלית:
-            </h2>
-            <SignatureCanvas onSignatureChange={setSignature} />
-          </div>
-
-          {/* Terms Acceptance */}
-          <div className="mb-8">
-            <label className="flex items-start gap-3">
-              <input
-                type="checkbox"
-                checked={termsAccepted}
-                onChange={(e) => setTermsAccepted(e.target.checked)}
-                className="mt-1"
-              />
-              <span className="text-sm text-gray-700" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-                אני מאשר/ת שקראתי את החוזה בעיון ואני מסכים/ה לכל התנאים והתניות המפורטים בו. 
-                אני מבין/ה שהחתימה הדיגיטלית שלי מהווה אישור מחייב לחוזה זה.
-              </span>
-            </label>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-600 text-sm" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-                {error}
-              </p>
-            </div>
-          )}
-
-          {/* Submit Button */}
-          <div className="flex justify-center">
+    <>
+      <main className="min-h-screen flex flex-col items-center bg-white text-gray-900" style={{ fontFamily: 'var(--contract-font)' }} dir="rtl">
+        {/* Sticky Header with Preview Title and Sign Button */}
+        <header className="print-hidden" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          background: 'rgba(255,255,255,0.98)',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: '16px 32px',
+          zIndex: 1000
+        }}>
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 mb-1">
             <button
-              onClick={handleSubmit}
-              disabled={!signature || !termsAccepted || submitting}
-              className="px-8 py-3 bg-[#38E18E] text-[#281D57] font-bold rounded-lg shadow hover:bg-[#2bc77a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={() => window.close()}
+              className="text-gray-500 hover:text-gray-700 transition-colors text-sm flex items-center gap-1 cursor-pointer"
               style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
             >
-              {submitting ? 'שומר חתימה...' : 'חתום על החוזה'}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span>סגור</span>
             </button>
           </div>
+          
+          {/* Main Header Content */}
+          <div className="flex items-center justify-between w-full">
+            <div className="text-lg font-bold" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+              חתום על הסכם השכירות
+            </div>
+            <div className="flex gap-2">
+              <button
+                className="bg-[#38E18E] text-[#281D57] font-bold px-4 py-1.5 rounded-lg shadow hover:bg-[#2bc77a] transition-colors flex items-center justify-center min-w-[100px] text-sm"
+                onClick={() => setShowSignatureModal(true)}
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                חתום על החוזה
+              </button>
+            </div>
+          </div>
+        </header>
 
-          {/* Footer */}
-          <div className="mt-8 pt-6 border-t text-center">
-            <p className="text-xs text-gray-500" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-              החתימה הדיגיטלית מאובטחת ומאומתת. כל הפעולות נרשמות וניתן לעקוב אחריהן.
-            </p>
+        {/* Spacer to prevent content from being hidden under the sticky header */}
+        <div className="print-spacer" style={{ height: 72 }} />
+        
+        {/* Contract Content */}
+        <div className="contract-preview max-w-4xl mx-auto w-full px-8 whitespace-pre-wrap"
+          style={{ lineHeight: 'initial', direction: 'rtl', color: '#111', fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+          {/* Contract Title and Header */}
+          <div className="contract-title text-center font-bold text-4xl underline mb-0 mt-10"
+            style={{ fontFamily: 'Frank Ruhl Libre, Noto Sans Hebrew, Arial, sans-serif', fontWeight: 700, fontSize: '2.25rem', textDecoration: 'underline', marginBottom: 0, marginTop: '2.5rem', letterSpacing: '0.01em', color: '#111', lineHeight: 1.1, direction: 'rtl' }}>
+            הסכם שכירות למגורים
+          </div>
+          <div className="contract-subtitle text-center text-lg font-medium mb-3"
+            style={{ fontFamily: 'Frank Ruhl Libre, Noto Sans Hebrew, Arial, sans-serif', fontWeight: 600, fontSize: '1.18rem', color: '#111', marginBottom: 18, marginTop: 0, letterSpacing: '0.01em', lineHeight: 1.2, direction: 'rtl' }}>
+            (שכירות בלתי מוגנת)
+          </div>
+          <div className="contract-date-row text-center text-base mb-3"
+            style={{ fontFamily: 'Frank Ruhl Libre, Noto Sans Hebrew, Arial, sans-serif', fontWeight: 400, fontSize: '1.05rem', color: '#111', marginBottom: 12, marginTop: 0, letterSpacing: '0.01em', lineHeight: 1.2, direction: 'rtl' }}>
+            שנעשה ונחתם ב_______, בתאריך _______.
+          </div>
+          <div style={{ lineHeight: 1.4 }}>
+            {contractText.split('\n').map((line, index) => {
+              // Skip empty lines, separator lines, and any remaining conditional block artifacts
+              if (!line.trim() || line.trim() === '⸻' || line.trim() === '-' || line.trim().startsWith('{{#if') || line.trim().startsWith('{{/if') || line.includes('<div><strong>-</strong></div>') || line.includes('<strong>-</strong>') || line.trim() === '<div><strong>-</strong></div>') return null;
+
+              // Check if the line starts with a number pattern (main sections or subsections)
+              const isMainSection = /^\d+\.(?!\d)/.test(line.trim());
+              const isSubSection = /^\d+\.\d+/.test(line.trim());
+
+              // Add bold to section numbers and "המושכר"
+              if (isSubSection || line.includes('<strong>')) {
+                return (
+                  <div key={index} dangerouslySetInnerHTML={{
+                    __html: line
+                      .replace(/^(\d+\.\d+)(?!<)/, '<strong>$1</strong>')
+                      .replace(/"המושכר"/g, '<strong>"המושכר"</strong>')
+                  }} />
+                );
+              }
+
+              // Main sections get bold numbers
+              if (isMainSection) {
+                return (
+                  <div key={index} dangerouslySetInnerHTML={{
+                    __html: line
+                      .replace(/^(\d+\.)(?!\d)/, '<strong>$1</strong>')
+                      .replace(/"המושכר"/g, '<strong>"המושכר"</strong>')
+                  }} />
+                );
+              }
+
+              // Regular lines
+              return (
+                <div key={index} dangerouslySetInnerHTML={{
+                  __html: line.replace(/"המושכר"/g, '<strong>"המושכר"</strong>')
+                }} />
+              );
+            })}
           </div>
         </div>
-      </div>
-    </div>
+
+        {/* Signature Modal */}
+        {showSignatureModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, width: '100vw', height: '100vh',
+            background: 'rgba(0,0,0,0.25)', zIndex: 2000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'Noto Sans Hebrew, Arial, sans-serif',
+          }}>
+            <div style={{ 
+              background: '#fff', 
+              borderRadius: 12, 
+              padding: 32, 
+              minWidth: 500, 
+              maxWidth: 600,
+              boxShadow: '0 2px 16px rgba(0,0,0,0.12)', 
+              fontFamily: 'Noto Sans Hebrew, Arial, sans-serif', 
+              position: 'relative' 
+            }}>
+              {/* Close Button */}
+              <button
+                onClick={() => setShowSignatureModal(false)}
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  left: '12px',
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  color: '#666',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '50%',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+              >
+                ×
+              </button>
+
+              {/* Modal Title */}
+              <h2 className="text-xl font-bold text-center mb-6" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                חתימה על הסכם השכירות
+              </h2>
+
+              {/* Agreement Checkbox */}
+              <div className="mb-6">
+                <label className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="mt-1"
+                    style={{ accentColor: '#8B5CF6' }}
+                  />
+                  <span className="text-sm text-gray-700" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                    אני מאשר/ת כי עיינתי בחוזה, הבנתי את תנאיו ואני מסכים/ה להם. חתימתי האלקטרונית מחייבת אותי בהתאם לחוק חתימה אלקטרונית, תשס"א-2001.
+                  </span>
+                </label>
+              </div>
+
+              {/* Signature Canvas */}
+              <div className="mb-6">
+                <SignatureCanvas 
+                  onSignatureChange={setSignature} 
+                  width={400} 
+                  height={150}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-600 text-sm" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                    {error}
+                  </p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowSignatureModal(false)}
+                  className="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                  style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                >
+                  ביטול
+                </button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={!signature || !termsAccepted || submitting}
+                  className="px-6 py-2 bg-[#38E18E] text-[#281D57] font-bold rounded-lg shadow hover:bg-[#2bc77a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                >
+                  {submitting ? 'שומר חתימה...' : 'אשר חתימה'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </main>
+    </>
   );
 } 
