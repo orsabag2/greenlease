@@ -71,14 +71,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('Converting to PDF...');
     console.log('PDFShift API Key exists:', !!process.env.PDFSHIFT_API_KEY);
     
-    if (!process.env.PDFSHIFT_API_KEY) {
-      console.log('PDFShift API key not found, returning HTML instead');
-      // Return HTML instead of PDF for debugging
-      res.setHeader('Content-Type', 'text/html');
-      res.setHeader('Content-Disposition', `attachment; filename="חוזה_שכירות_חתום_${contractId}.html"`);
-      res.send(signedContractHtml);
-      return;
-    }
+          if (!process.env.PDFSHIFT_API_KEY) {
+        console.log('PDFShift API key not found, returning HTML instead');
+        // Return HTML instead of PDF for debugging
+        res.setHeader('Content-Type', 'text/html');
+        res.setHeader('Content-Disposition', `attachment; filename="contract_${contractId}.html"`);
+        res.send(signedContractHtml);
+        return;
+      }
     
     const pdfResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
@@ -119,7 +119,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.log('Invalid PDFShift API key, returning HTML instead');
         // Return HTML instead of PDF when API key is invalid
         res.setHeader('Content-Type', 'text/html');
-        res.setHeader('Content-Disposition', `attachment; filename="חוזה_שכירות_חתום_${contractId}.html"`);
+        res.setHeader('Content-Disposition', `attachment; filename="contract_${contractId}.html"`);
         res.send(signedContractHtml);
         return;
       }
@@ -132,7 +132,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Set response headers for file download
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="חוזה_שכירות_חתום_${contractId}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="contract_${contractId}.pdf"`);
     res.setHeader('Content-Length', pdfBuffer.byteLength);
 
     // Send the PDF buffer

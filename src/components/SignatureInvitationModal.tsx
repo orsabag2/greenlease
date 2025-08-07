@@ -382,7 +382,7 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
         const contentType = response.headers.get('content-type');
         const isHtml = contentType && contentType.includes('text/html');
         const fileExtension = isHtml ? 'html' : 'pdf';
-        const fileName = `חוזה_שכירות_חתום_${contractId}.${fileExtension}`;
+        const fileName = `contract_${contractId}.${fileExtension}`;
         
         a.download = fileName;
         document.body.appendChild(a);
