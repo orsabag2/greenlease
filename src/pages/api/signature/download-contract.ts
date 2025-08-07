@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { db } from '@/utils/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import contractMerge from '@/utils/contractMerge';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -36,35 +36,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const answers = contractData.answers || contractData;
     console.log('Contract data retrieved, answers keys:', Object.keys(answers));
 
-    // Get all signatures for this contract
+    // Get all signatures for this contract directly from Firestore
     console.log('Fetching signatures for contract:', contractId);
-    console.log('Signatures URL:', `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/signature/get-signatures?contractId=${contractId}`);
     
-    let signaturesResponse;
-    let signaturesData;
+    let signatures;
     try {
-      signaturesResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/signature/get-signatures?contractId=${contractId}`);
-      signaturesData = await signaturesResponse.json();
+      const signaturesQuery = query(
+        collection(db, 'signatureInvitations'),
+        where('contractId', '==', contractId),
+        where('status', '==', 'signed')
+      );
+      const signaturesSnapshot = await getDocs(signaturesQuery);
+      signatures = signaturesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      console.log('Found signatures:', signatures.length);
     } catch (error) {
-      console.log('Error fetching signatures:', error);
+      console.log('Error fetching signatures from Firestore:', error);
       throw error;
     }
-    
-    console.log('Signatures response status:', signaturesResponse.status);
-    console.log('Signatures data:', signaturesData);
-    
-    if (!signaturesResponse.ok) {
-      console.log('Failed to fetch signatures:', signaturesData);
-      throw new Error('Failed to fetch signatures');
-    }
-
-    const signatures = signaturesData.signatures || [];
-    console.log('Found signatures:', signatures.length);
 
     // Generate signed contract HTML
     console.log('Fetching template...');
-    const templateResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/data/master-template.txt`);
-    const template = await templateResponse.text();
+    const fs = require('fs');
+    const path = require('path');
+    const templatePath = path.join(process.cwd(), 'public', 'data', 'master-template.txt');
+    const template = fs.readFileSync(templatePath, 'utf8');
     console.log('Template fetched, length:', template.length);
     
     console.log('Merging contract...');
