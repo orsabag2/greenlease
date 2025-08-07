@@ -140,6 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     console.log('API: Created signers:', signers);
+    console.log('API: Signers with status:', signers.map(s => ({ name: s.name, status: s.status, email: s.email })));
     
     res.status(200).json({
       signers,

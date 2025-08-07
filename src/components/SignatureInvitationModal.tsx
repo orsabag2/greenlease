@@ -186,6 +186,19 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     }
   }, [isOpen, contractId, contractData]);
 
+  // Auto-refresh when window gains focus (user returns to tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (isOpen) {
+        console.log('Window focused, refreshing signature statuses');
+        fetchSignatureStatuses();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [isOpen]);
+
   const updateSignerEmail = (index: number, email: string) => {
     const updatedSigners = [...signers];
     updatedSigners[index].email = email;
@@ -293,20 +306,30 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b">
-          <h2 className="text-2xl font-bold text-[#281D57]" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-            חוזה השכירות מוכן לחתימה דיגיטלית
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+                  {/* Header */}
+          <div className="flex justify-between items-center p-6 border-b">
+            <h2 className="text-2xl font-bold text-[#281D57]" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+              חוזה השכירות מוכן לחתימה דיגיטלית
+            </h2>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={fetchSignatureStatuses}
+                disabled={refreshing}
+                className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+              >
+                {refreshing ? 'מעדכן...' : 'רענן'}
+              </button>
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
 
         {/* Content */}
         <div className="p-6">
