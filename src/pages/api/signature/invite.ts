@@ -56,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const invitationRef = await addDoc(collection(db, 'signatureInvitations'), invitation);
       invitations.push({ ...invitation, id: invitationRef.id });
 
-      // Send invitation email (temporarily disabled for testing)
+      // Send invitation email
       try {
         await sendInvitationEmail(signer, token, contractData);
       } catch (emailError) {
@@ -96,8 +96,7 @@ async function sendInvitationEmail(signer: any, token: string, contractData: any
     console.warn('Gmail credentials not configured, skipping email sending');
     return;
   }
-
-  const transporter = nodemailer.createTransporter({
+  const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
       user: process.env.GMAIL_USER,
