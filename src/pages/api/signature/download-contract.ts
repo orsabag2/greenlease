@@ -169,7 +169,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         margin: '1cm',
         landscape: false,
         css: `
-          body { font-family: 'Noto Sans Hebrew', Arial, sans-serif; direction: rtl; }
+          body { font-family: 'Noto Sans Hebrew', Arial, sans-serif; direction: rtl; text-align: right; }
           .signature-placeholder { 
             display: inline-block; 
             width: 200px; 
@@ -180,6 +180,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             line-height: 80px;
             font-size: 12px;
             color: #666;
+          }
+          .signature-block { 
+            margin: 20px 0; 
+            padding: 10px; 
+            border: 1px solid #eee; 
+            border-radius: 5px;
+          }
+          .signature-block img { 
+            max-width: 200px; 
+            max-height: 80px; 
+            border: 1px solid #ccc; 
+            display: block; 
+            margin: 0 auto;
           }
         `
       }),
@@ -242,16 +255,29 @@ function addSignaturesToContract(contractHtml: string, signatures: any[]): strin
     // Find signature placeholders and replace them
     const placeholderPattern = new RegExp(`<span class="signature-placeholder">${signerRole}</span>`, 'g');
     const signatureHtml = `
-      <div style="text-align: center; margin: 10px 0;">
-        <img src="${signatureImage}" style="max-width: 200px; max-height: 80px; border: 1px solid #ccc;" />
-        <div style="font-size: 12px; margin-top: 5px;">${signerName}</div>
+      <div style="text-align: center; margin: 10px 0; display: inline-block;">
+        <img src="${signatureImage}" style="max-width: 200px; max-height: 80px; border: 1px solid #ccc; display: block;" />
+        <div style="font-size: 12px; margin-top: 5px; font-weight: bold;">${signerName}</div>
       </div>
     `;
     
     const matches = signedHtml.match(placeholderPattern);
     console.log(`Found ${matches ? matches.length : 0} placeholders for ${signerRole}`);
     
-    signedHtml = signedHtml.replace(placeholderPattern, signatureHtml);
+    if (matches && matches.length > 0) {
+      signedHtml = signedHtml.replace(placeholderPattern, signatureHtml);
+      console.log(`Successfully replaced ${matches.length} placeholders for ${signerRole}`);
+    } else {
+      console.log(`No placeholders found for ${signerRole}, adding signature at end of signature block`);
+      // If no placeholder found, add signature at the end of the signature section
+      const signatureBlockPattern = /<div class="signature-block">/g;
+      const lastSignatureBlock = signedHtml.lastIndexOf('<div class="signature-block">');
+      if (lastSignatureBlock !== -1) {
+        const insertPosition = signedHtml.indexOf('</div>', lastSignatureBlock) + 6;
+        signedHtml = signedHtml.slice(0, insertPosition) + signatureHtml + signedHtml.slice(insertPosition);
+        console.log(`Added signature for ${signerRole} at end of signature section`);
+      }
+    }
   });
   
   console.log('Signatures added successfully');
