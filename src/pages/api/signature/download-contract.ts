@@ -85,6 +85,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('Forcing PDF generation for debug button...');
     console.log('Signed contract HTML length:', signedContractHtml.length);
     console.log('First 500 chars of HTML:', signedContractHtml.substring(0, 500));
+    console.log('PDFShift API Key exists:', !!process.env.PDFSHIFT_API_KEY);
+    console.log('PDFShift API Key (first 10 chars):', process.env.PDFSHIFT_API_KEY?.substring(0, 10) + '...');
     
     const pdfResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
@@ -112,7 +114,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           }
         `
       }),
-      signal: AbortSignal.timeout(30000), // 30 second timeout
     });
 
     console.log('PDF response status:', pdfResponse.status);

@@ -356,6 +356,8 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     setSending(true);
     try {
       console.log('Sending download request with:', { contractId, signers: signers.filter(signer => signer.status === 'signed') });
+      console.log('Contract ID being used:', contractId);
+      console.log('Signed signers count:', signers.filter(signer => signer.status === 'signed').length);
       
       const response = await fetch(`/api/signature/download-contract`, {
         method: 'POST',
