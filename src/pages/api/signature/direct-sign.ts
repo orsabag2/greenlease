@@ -52,6 +52,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (error) {
     console.error('Error saving direct signature:', error);
-    res.status(500).json({ error: 'Failed to save signature', details: error instanceof Error ? error.message : 'Unknown error' });
+    console.error('Request body:', req.body);
+    res.status(500).json({ 
+      error: 'Failed to save signature', 
+      details: error instanceof Error ? error.message : 'Unknown error',
+      requestBody: req.body 
+    });
   }
 }

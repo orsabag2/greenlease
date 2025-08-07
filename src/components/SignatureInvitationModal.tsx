@@ -258,21 +258,25 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
 
     setSigning(true);
     try {
+      const requestBody = {
+        contractId,
+        signerId: currentSigner.signerId,
+        signerName: currentSigner.name,
+        signerType: currentSigner.signerType,
+        signature,
+        ipAddress: 'direct-sign',
+        userAgent: 'direct-sign'
+      };
+      
+      console.log('Sending direct signature request:', requestBody);
+      
       // Use the direct signature API
       const response = await fetch('/api/signature/direct-sign', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          contractId,
-          signerId: currentSigner.signerId,
-          signerName: currentSigner.name,
-          signerType: currentSigner.signerType,
-          signature,
-          ipAddress: 'direct-sign',
-          userAgent: 'direct-sign'
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (response.ok) {
@@ -283,7 +287,9 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
         // Refresh the signers list
         await fetchSignatureStatuses();
       } else {
-        console.error('Error saving signature');
+        const errorData = await response.json();
+        console.error('Error saving signature:', errorData);
+        alert(`שגיאה בשמירת החתימה: ${errorData.error || 'שגיאה לא ידועה'}`);
       }
     } catch (error) {
       console.error('Error saving signature:', error);
