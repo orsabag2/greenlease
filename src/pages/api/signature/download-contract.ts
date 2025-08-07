@@ -66,10 +66,74 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('Template fetched, length:', template.length);
     
     console.log('Merging contract...');
-    const contractContent = contractMerge(template, answers);
-    console.log('Contract merged, length:', contractContent.length);
+    let mergedContract = contractMerge(template, answers);
+    console.log('Contract merged, length:', mergedContract.length);
     
-    // Wrap in proper HTML structure
+    // Apply the same processing as ContractPreviewPage
+    console.log('Applying ContractPreviewPage processing...');
+    
+    // Remove conditional blocks (simple MVP: no #if logic)
+    mergedContract = mergedContract.replace(/{{#if [^}]+}}([\s\S]*?){{\/if}}/g, (m, content) => {
+      // Check if the condition is met
+      const match = m.match(/{{#if \(eq ([^)]+) "([^"]+)"\)}}/);
+      if (match) {
+        const key = match[1].trim();
+        const expectedValue = match[2].trim();
+        console.log(`Condition check: ${key} = "${answers[key]}" expected "${expectedValue}"`);
+        if (answers[key] === expectedValue) {
+          console.log(`Condition met, including content: ${content.trim()}`);
+          return content.trim();
+        }
+        console.log(`Condition not met, removing content`);
+        return '';
+      }
+      
+      // Fallback for simple conditions
+      const simpleMatch = m.match(/{{#if ([^}]+)}}/);
+      if (simpleMatch) {
+        const key = simpleMatch[1].trim();
+        if (answers[key]) return content.trim();
+        return '';
+      }
+      
+      return '';
+    });
+
+    // Clean up any remaining conditional block artifacts or extra dashes
+    mergedContract = mergedContract
+      .replace(/\n\s*-\s*\n/g, '\n') // Remove lines with just dashes
+      .replace(/\n\s*{{#if[^}]*}}\s*\n/g, '\n') // Remove any remaining #if tags
+      .replace(/\n\s*{{\/if}}\s*\n/g, '\n') // Remove any remaining /if tags
+      .replace(/\n\s*-\s*$/gm, '\n') // Remove dashes at end of lines
+      .replace(/^\s*-\s*\n/gm, '\n') // Remove dashes at start of lines
+      .replace(/\n\s*-\s*\n/g, '\n') // Remove standalone dash lines
+      .replace(/\n{3,}/g, '\n\n'); // Remove excessive newlines
+
+    // Additional cleanup: Remove garden maintenance clause if not selected
+    if (answers.gardenMaintenance !== "כן, ברצוני שהשוכר יהיה אחראי על תחזוקת הגינה") {
+      console.log('Garden maintenance not selected, removing clause');
+      mergedContract = mergedContract.replace(/6\.3 השוכר מתחייב לבצע תחזוקה שוטפת של הגינה הצמודה למושכר, לרבות השקיה, ניקיון וגיזום, ולשמור על מצבה התקין לאורך כל תקופת השכירות\.\n?/g, '');
+      
+      // Renumber the subsequent clauses after removing 6.3
+      mergedContract = mergedContract
+        .replace(/^6\.4/gm, '6.3')
+        .replace(/^6\.5/gm, '6.4')
+        .replace(/^6\.6/gm, '6.5')
+        .replace(/^6\.7/gm, '6.6');
+    }
+
+    // Additional cleanup specifically for clause 6.3 area
+    mergedContract = mergedContract
+      .replace(/(6\.2[^\n]*)\n\s*-\s*\n(6\.3[^\n]*)/g, '$1\n$2') // Remove dash between 6.2 and 6.3
+      .replace(/(6\.3[^\n]*)\n\s*-\s*\n(6\.4[^\n]*)/g, '$1\n$2') // Remove dash between 6.3 and 6.4
+      .replace(/\n\s*-\s*\n/g, '\n') // Remove any standalone dash lines
+      .replace(/\n\s*-\s*$/gm, '\n') // Remove dashes at end of lines
+      .replace(/^\s*-\s*\n/gm, '\n') // Remove dashes at start of lines
+      .replace(/\n\s*-\s*\n/g, '\n'); // Final pass to catch any remaining dashes
+
+    console.log('Contract processing completed, length:', mergedContract.length);
+    
+    // Wrap in proper HTML structure with the same styling as preview
     const contractHtml = `<!DOCTYPE html>
 <html dir="rtl" lang="he">
 <head>
@@ -84,6 +148,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             line-height: 1.6;
             margin: 20px;
             font-size: 14px;
+            color: #111;
         }
         .signature-placeholder {
             display: inline-block;
@@ -96,10 +161,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             font-size: 12px;
             color: #666;
         }
+        .signature-block {
+            margin: 20px 0;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+        }
+        .signature-block img {
+            max-width: 200px;
+            max-height: 80px;
+            border: 1px solid #ccc;
+            display: block;
+            margin: 0 auto;
+        }
+        pre {
+            white-space: pre-wrap;
+            font-family: inherit;
+            margin: 0;
+            padding: 0;
+        }
     </style>
 </head>
 <body>
-    <pre style="white-space: pre-wrap; font-family: inherit;">${contractContent}</pre>
+    <pre>${mergedContract}</pre>
 </body>
 </html>`;
     console.log('HTML wrapped, final length:', contractHtml.length);
