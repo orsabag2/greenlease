@@ -113,6 +113,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!pdfResponse.ok) {
       const errorText = await pdfResponse.text();
       console.log('PDF generation failed:', errorText);
+      
+      // Check if it's an API key error
+      if (pdfResponse.status === 401 && errorText.includes('API Key')) {
+        console.log('Invalid PDFShift API key, returning HTML instead');
+        // Return HTML instead of PDF when API key is invalid
+        res.setHeader('Content-Type', 'text/html');
+        res.setHeader('Content-Disposition', `attachment; filename="חוזה_שכירות_חתום_${contractId}.html"`);
+        res.send(signedContractHtml);
+        return;
+      }
+      
       throw new Error(`Failed to generate PDF: ${pdfResponse.status} ${errorText}`);
     }
 
