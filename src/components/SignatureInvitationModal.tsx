@@ -355,6 +355,8 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
   const downloadSignedContract = async () => {
     setSending(true);
     try {
+      console.log('Sending download request with:', { contractId, signers: signers.filter(signer => signer.status === 'signed') });
+      
       const response = await fetch('/api/signature/download-contract', {
         method: 'POST',
         headers: {
@@ -366,20 +368,38 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
         })
       });
 
+      console.log('Download response status:', response.status);
+      console.log('Download response headers:', Object.fromEntries(response.headers.entries()));
+
       if (response.ok) {
         const blob = await response.blob();
+        console.log('Download blob size:', blob.size);
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `חוזה_שכירות_חתום_${contractId}.pdf`;
+        
+        // Check content type to determine file extension
+        const contentType = response.headers.get('content-type');
+        const isHtml = contentType && contentType.includes('text/html');
+        const fileExtension = isHtml ? 'html' : 'pdf';
+        const fileName = `חוזה_שכירות_חתום_${contractId}.${fileExtension}`;
+        
+        a.download = fileName;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        alert('החוזה החתום הורד בהצלחה!');
+        alert(`החוזה החתום הורד בהצלחה! (${fileExtension.toUpperCase()})`);
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to download contract');
+        const errorText = await response.text();
+        console.log('Download error response:', errorText);
+        let errorData;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText };
+        }
+        throw new Error(errorData.error || `HTTP ${response.status}: ${errorText}`);
       }
     } catch (error) {
       console.error('Error downloading contract:', error);

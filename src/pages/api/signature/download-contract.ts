@@ -71,6 +71,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('Converting to PDF...');
     console.log('PDFShift API Key exists:', !!process.env.PDFSHIFT_API_KEY);
     
+    if (!process.env.PDFSHIFT_API_KEY) {
+      console.log('PDFShift API key not found, returning HTML instead');
+      // Return HTML instead of PDF for debugging
+      res.setHeader('Content-Type', 'text/html');
+      res.setHeader('Content-Disposition', `attachment; filename="חוזה_שכירות_חתום_${contractId}.html"`);
+      res.send(signedContractHtml);
+      return;
+    }
+    
     const pdfResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
       headers: {
