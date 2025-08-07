@@ -38,7 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Get all signatures for this contract
     console.log('Fetching signatures for contract:', contractId);
-    const signaturesResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/signature/get-signatures?contractId=${contractId}`);
+    const signaturesResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/signature/get-signatures?contractId=${contractId}`);
     const signaturesData = await signaturesResponse.json();
     
     console.log('Signatures response status:', signaturesResponse.status);
@@ -54,7 +54,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Generate signed contract HTML
     console.log('Fetching template...');
-    const templateResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/data/master-template.txt`);
+    const templateResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/data/master-template.txt`);
     const template = await templateResponse.text();
     console.log('Template fetched, length:', template.length);
     
