@@ -33,7 +33,7 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     
     const initialSigners: SignatureStatus[] = [];
 
-    // Add landlord
+    // Add landlord - check both array and direct properties
     if (contractData.landlords && contractData.landlords.length > 0) {
       contractData.landlords.forEach((landlord: any) => {
         initialSigners.push({
@@ -56,7 +56,7 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
       });
     }
 
-    // Add tenants
+    // Add tenants - check both array and direct properties
     if (contractData.tenants && contractData.tenants.length > 0) {
       contractData.tenants.forEach((tenant: any) => {
         initialSigners.push({
@@ -79,7 +79,7 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
       });
     }
 
-    // Add guarantors
+    // Add guarantors - check both array and direct properties
     if (contractData.guarantorsCount && contractData.guarantorsCount > 0) {
       for (let i = 1; i <= contractData.guarantorsCount; i++) {
         const guarantorName = contractData[`guarantor${i}Name`];
@@ -98,6 +98,13 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
         }
       }
     }
+
+    // Debug: Log what we found
+    console.log('Landlords found:', contractData.landlords);
+    console.log('Tenants found:', contractData.tenants);
+    console.log('Guarantors count:', contractData.guarantorsCount);
+    console.log('Guarantor1Name:', contractData.guarantor1Name);
+    console.log('Guarantor2Name:', contractData.guarantor2Name);
 
     console.log('Created signers:', initialSigners);
     return initialSigners;
