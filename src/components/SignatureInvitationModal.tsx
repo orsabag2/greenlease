@@ -20,81 +20,32 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
   const [signers, setSigners] = useState<SignatureStatus[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Initialize signers from contract data
-  useEffect(() => {
-    if (contractData) {
-      const initialSigners: SignatureStatus[] = [];
-
-      // Add landlord
-      if (contractData.landlords && contractData.landlords.length > 0) {
-        contractData.landlords.forEach((landlord: any, index: number) => {
-          initialSigners.push({
-            role: 'המשכיר',
-            name: landlord.landlordName || '',
-            status: 'not_sent',
-            email: landlord.landlordEmail || '',
-            signerType: 'landlord',
-            signerId: landlord.landlordId || '',
-          });
-        });
-      } else if (contractData.landlordName) {
-        initialSigners.push({
-          role: 'המשכיר',
-          name: contractData.landlordName,
-          status: 'not_sent',
-          email: contractData.landlordEmail || '',
-          signerType: 'landlord',
-          signerId: contractData.landlordId || '',
-        });
+  // Fetch current signature statuses
+  const fetchSignatureStatuses = async () => {
+    if (!contractId) return;
+    
+    setRefreshing(true);
+    try {
+      const response = await fetch(`/api/signature/status?contractId=${contractId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSigners(data.signers);
       }
-
-      // Add tenants
-      if (contractData.tenants && contractData.tenants.length > 0) {
-        contractData.tenants.forEach((tenant: any, index: number) => {
-          initialSigners.push({
-            role: 'השוכר',
-            name: tenant.tenantName || '',
-            status: 'not_sent',
-            email: tenant.tenantEmail || '',
-            signerType: 'tenant',
-            signerId: tenant.tenantIdNumber || '',
-          });
-        });
-      } else if (contractData.tenantName) {
-        initialSigners.push({
-          role: 'השוכר',
-          name: contractData.tenantName,
-          status: 'not_sent',
-          email: contractData.tenantEmail || '',
-          signerType: 'tenant',
-          signerId: contractData.tenantIdNumber || '',
-        });
-      }
-
-      // Add guarantors
-      if (contractData.guarantorsCount && contractData.guarantorsCount > 0) {
-        for (let i = 1; i <= contractData.guarantorsCount; i++) {
-          const guarantorName = contractData[`guarantor${i}Name`];
-          const guarantorId = contractData[`guarantor${i}Id`];
-          const guarantorEmail = contractData[`guarantor${i}Email`];
-          
-          if (guarantorName) {
-            initialSigners.push({
-              role: i === 1 ? 'ערב ראשון' : 'ערב שני',
-              name: guarantorName,
-              status: 'not_sent',
-              email: guarantorEmail || '',
-              signerType: 'guarantor',
-              signerId: guarantorId || '',
-            });
-          }
-        }
-      }
-
-      setSigners(initialSigners);
+    } catch (error) {
+      console.error('Error fetching signature statuses:', error);
+    } finally {
+      setRefreshing(false);
     }
-  }, [contractData]);
+  };
+
+  // Initialize signers and fetch current statuses
+  useEffect(() => {
+    if (isOpen && contractId) {
+      fetchSignatureStatuses();
+    }
+  }, [isOpen, contractId]);
 
   const updateSignerEmail = (index: number, email: string) => {
     const updatedSigners = [...signers];
@@ -102,10 +53,24 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     setSigners(updatedSigners);
   };
 
-  const addEmailAddress = (index: number) => {
-    const updatedSigners = [...signers];
-    updatedSigners[index].status = 'sent';
-    setSigners(updatedSigners);
+  const saveEmailAddress = async (index: number) => {
+    const signer = signers[index];
+    if (!signer.email) return;
+
+    setLoading(true);
+    try {
+      // Send invitation for this specific signer
+      await onSendInvitations([signer]);
+      
+      // Update local state
+      const updatedSigners = [...signers];
+      updatedSigners[index].status = 'sent';
+      setSigners(updatedSigners);
+    } catch (error) {
+      console.error('Error saving email address:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const resendInvitation = async (index: number) => {
@@ -115,9 +80,8 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     setLoading(true);
     try {
       await onSendInvitations([signer]);
-      const updatedSigners = [...signers];
-      updatedSigners[index].status = 'sent';
-      setSigners(updatedSigners);
+      // Refresh statuses to get updated data
+      await fetchSignatureStatuses();
     } catch (error) {
       console.error('Error resending invitation:', error);
     } finally {
@@ -132,12 +96,8 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     setSending(true);
     try {
       await onSendInvitations(signersWithEmails);
-      const updatedSigners = signers.map(signer => 
-        signersWithEmails.some(s => s.signerId === signer.signerId) 
-          ? { ...signer, status: 'sent' as const }
-          : signer
-      );
-      setSigners(updatedSigners);
+      // Refresh statuses to get updated data
+      await fetchSignatureStatuses();
     } catch (error) {
       console.error('Error sending invitations:', error);
     } finally {
@@ -175,8 +135,18 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
       case 'sent':
         return 'נשלח לחתימה';
       default:
-        return 'לא נשלח';
+        return 'לא נחתם';
     }
+  };
+
+  const getPropertyAddress = () => {
+    if (!contractData) return '';
+    const parts = [
+      contractData.street,
+      contractData.buildingNumber,
+      contractData.propertyCity
+    ].filter(Boolean);
+    return parts.join(' ');
   };
 
   if (!isOpen) return null;
@@ -203,32 +173,29 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
         <div className="p-6">
           {/* Subtitle */}
           <p className="text-gray-600 mb-6" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-            החוזה עבור {contractData?.street || ''} {contractData?.buildingNumber || ''} {contractData?.propertyCity || ''} מוכן לחתימה והוזנו פרטי החותמים הבאים:
+            החוזה עבור {getPropertyAddress()} מוכן לחתימה והוזנו פרטי החותמים הבאים:
           </p>
 
-          {/* Signers Table */}
-          <div className="mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 text-sm font-semibold text-gray-700 border-b pb-2">
-              <div style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>תפקיד</div>
-              <div style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>שם</div>
-              <div style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>סטטוס</div>
-              <div style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>כתובת מייל</div>
-            </div>
-
+          {/* Signers List - Redesigned to match the image */}
+          <div className="mb-8 space-y-4">
             {signers.map((signer, index) => (
-              <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center py-3 border-b">
-                <div className="font-medium" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-                  {signer.role}
+              <div key={index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                {/* Role and Name (Right side) */}
+                <div className="flex-1 text-right">
+                  <div className="font-medium text-gray-900" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                    {signer.role}: {signer.name}
+                  </div>
                 </div>
-                <div style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-                  {signer.name}
-                </div>
-                <div className="flex items-center gap-2">
+
+                {/* Status (Middle) */}
+                <div className="flex items-center gap-2 mx-4">
                   {getStatusIcon(signer.status)}
-                  <span className="text-sm" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                  <span className="text-sm font-medium" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
                     {getStatusText(signer.status)}
                   </span>
                 </div>
+
+                {/* Email and Actions (Left side) */}
                 <div className="flex items-center gap-2">
                   {signer.status === 'not_sent' ? (
                     <>
@@ -237,13 +204,13 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
                         value={signer.email}
                         onChange={(e) => updateSignerEmail(index, e.target.value)}
                         placeholder="הזן מייל"
-                        className="flex-1 px-3 py-1 border border-gray-300 rounded text-sm"
+                        className="px-3 py-2 border border-gray-300 rounded text-sm w-48"
                         style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
                       />
                       <button
-                        onClick={() => addEmailAddress(index)}
-                        disabled={!signer.email}
-                        className="px-3 py-1 bg-orange-500 text-white rounded text-sm hover:bg-orange-600 disabled:opacity-50"
+                        onClick={() => saveEmailAddress(index)}
+                        disabled={!signer.email || loading}
+                        className="px-4 py-2 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600 disabled:opacity-50 transition-colors"
                         style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
                       >
                         הוסיפו כתובת מייל
@@ -251,27 +218,17 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
                     </>
                   ) : (
                     <>
-                      <span className="text-sm text-gray-600" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                      <span className="text-sm text-gray-600 px-3 py-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
                         {signer.email}
                       </span>
-                      {signer.status === 'sent' && (
+                      {(signer.status === 'sent' || signer.status === 'not_sent') && (
                         <button
                           onClick={() => resendInvitation(index)}
                           disabled={loading}
-                          className="px-3 py-1 bg-white border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50"
+                          className="px-3 py-1 bg-white border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50 transition-colors"
                           style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
                         >
                           שלח שוב
-                        </button>
-                      )}
-                      {signer.status === 'not_sent' && (
-                        <button
-                          onClick={() => resendInvitation(index)}
-                          disabled={loading}
-                          className="px-3 py-1 bg-white border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50"
-                          style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
-                        >
-                          שלח לחתימה
                         </button>
                       )}
                     </>
@@ -307,7 +264,7 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
             <button
               onClick={sendAllInvitations}
               disabled={sending || signers.filter(s => s.email && s.status === 'not_sent').length === 0}
-              className="px-8 py-3 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600 disabled:opacity-50 transition-colors"
+              className="px-8 py-3 bg-[#38E18E] text-[#281D57] rounded-lg font-semibold hover:bg-[#2bc77a] disabled:opacity-50 transition-colors"
               style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
             >
               {sending ? 'שולח...' : 'שלח את החוזה החתום לכולם'}

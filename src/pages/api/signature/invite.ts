@@ -309,7 +309,7 @@ async function sendInvitationEmail(signer: any, token: string, contractData: any
   `;
 
   await transporter.sendMail({
-    from: process.env.GMAIL_USER,
+    from: `"GreenLease" <${process.env.GMAIL_USER}>`,
     to: signer.email,
     subject: `הזמנה לחתימה דיגיטלית - חוזה שכירות ${propertyAddress}`,
     html: emailHtml,
