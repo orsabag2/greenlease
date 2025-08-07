@@ -157,7 +157,8 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     
     setRefreshing(true);
     try {
-      const response = await fetch(`/api/signature/status?contractId=${contractId}`);
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
+      const response = await fetch(`${baseUrl}/api/signature/status?contractId=${contractId}`);
       if (response.ok) {
         const data = await response.json();
         console.log('Fetched signers:', data.signers);
@@ -279,7 +280,8 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
       console.log('Sending direct signature request:', requestBody);
       
       // Use the direct signature API
-      const response = await fetch('/api/signature/direct-sign', {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
+      const response = await fetch(`${baseUrl}/api/signature/direct-sign`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -325,7 +327,8 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
   const distributeSignedContract = async () => {
     setSending(true);
     try {
-      const response = await fetch('/api/signature/distribute-contract', {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
+      const response = await fetch(`${baseUrl}/api/signature/distribute-contract`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -357,7 +360,8 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     try {
       console.log('Sending download request with:', { contractId, signers: signers.filter(signer => signer.status === 'signed') });
       
-      const response = await fetch('/api/signature/download-contract', {
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
+      const response = await fetch(`${baseUrl}/api/signature/download-contract`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
