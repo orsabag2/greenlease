@@ -128,9 +128,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.send(Buffer.from(pdfBuffer));
   } catch (error) {
     console.error('Error downloading contract:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     res.status(500).json({ 
       error: 'Failed to download contract', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
+      details: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     });
   }
 }
