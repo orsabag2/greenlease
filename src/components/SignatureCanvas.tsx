@@ -40,7 +40,7 @@ const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
 
-    console.log('Canvas initialized with dimensions:', { width, height });
+
   }, [width, height]);
 
   // Get mouse/touch coordinates relative to canvas
@@ -77,7 +77,7 @@ const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
     
     ctx.beginPath();
     ctx.moveTo(x, y);
-    console.log('Started drawing at:', { x, y });
+
   };
 
   // Draw
@@ -93,7 +93,7 @@ const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
     
     ctx.lineTo(x, y);
     ctx.stroke();
-    console.log('Drawing to:', { x, y });
+
   };
 
   // Stop drawing
@@ -108,7 +108,7 @@ const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
     if (canvas) {
       const signatureData = canvas.toDataURL('image/png');
       onSignatureChange(signatureData);
-      console.log('Signature saved');
+
     }
   };
 
@@ -124,24 +124,10 @@ const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
     
     setHasSignature(false);
     onSignatureChange('');
-    console.log('Canvas cleared');
+
   };
 
-  // Test function
-  const testCanvas = () => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
-
-    console.log('Testing canvas...');
-    ctx.strokeStyle = '#ff0000';
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.moveTo(10, 10);
-    ctx.lineTo(100, 100);
-    ctx.stroke();
-    console.log('Test line drawn');
-  };
+  
 
   return (
     <div className={`signature-container ${className}`}>
@@ -187,13 +173,7 @@ const SignatureCanvas: React.FC<SignatureCanvasProps> = ({
           נקה חתימה
         </button>
         
-        <button
-          onClick={testCanvas}
-          className="px-4 py-2 text-sm bg-blue-200 text-blue-700 rounded-lg hover:bg-blue-300 transition-colors"
-          style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
-        >
-          בדוק קנבס
-        </button>
+
         
         {hasSignature && (
           <div className="flex items-center gap-2 text-green-600">
