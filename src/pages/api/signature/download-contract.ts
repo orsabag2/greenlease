@@ -80,6 +80,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       res.send(signedContractHtml);
       return;
     }
+
+    // Force PDF generation - don't fall back to HTML for debug button
+    console.log('Forcing PDF generation for debug button...');
     
     const pdfResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
       method: 'POST',
@@ -93,66 +96,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         margin: '1cm',
         landscape: false,
         css: `
-          body { 
-            font-family: 'Noto Sans Hebrew', Arial, sans-serif; 
-            direction: rtl; 
-            line-height: 1.6;
-            margin: 20px;
-          }
-          .signature-header {
+          body { font-family: 'Noto Sans Hebrew', Arial, sans-serif; direction: rtl; }
+          .signature-placeholder { 
+            display: inline-block; 
+            width: 200px; 
+            height: 80px; 
+            border: 1px solid #ccc; 
+            margin: 10px 0; 
             text-align: center;
-            font-weight: bold;
-            font-size: 16px;
-            margin: 20px 0;
-          }
-          .signature-block {
-            margin: 15px 0;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-          }
-          .signature-block strong {
-            font-weight: bold;
+            line-height: 80px;
+            font-size: 12px;
+            color: #666;
           }
         `
       }),
     });
 
-    console.log('PDF response status:', pdfResponse.status);
-    console.log('PDF response headers:', Object.fromEntries(pdfResponse.headers.entries()));
-    
     if (!pdfResponse.ok) {
-      const errorText = await pdfResponse.text();
-      console.log('PDF generation failed:', errorText);
-      console.log('PDF response status text:', pdfResponse.statusText);
-      
-      // Check if it's an API key error
-      if (pdfResponse.status === 401 && errorText.includes('API Key')) {
-        console.log('Invalid PDFShift API key, returning HTML instead');
-        // Return HTML instead of PDF when API key is invalid
-        res.setHeader('Content-Type', 'text/html');
-        res.setHeader('Content-Disposition', `attachment; filename="contract_${contractId}.html"`);
-        res.send(signedContractHtml);
-        return;
-      }
-      
-      // For any other error, still try to return PDF if possible
-      console.log('Attempting to get PDF despite error...');
-      try {
-        const pdfBuffer = await pdfResponse.arrayBuffer();
-        if (pdfBuffer.byteLength > 0) {
-          console.log('PDF generated despite error, size:', pdfBuffer.byteLength);
-          res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', `attachment; filename="contract_${contractId}.pdf"`);
-          res.setHeader('Content-Length', pdfBuffer.byteLength);
-          res.send(Buffer.from(pdfBuffer));
-          return;
-        }
-      } catch (bufferError) {
-        console.log('Could not get PDF buffer:', bufferError);
-      }
-      
-      throw new Error(`Failed to generate PDF: ${pdfResponse.status} ${errorText}`);
+      throw new Error('Failed to generate PDF');
     }
 
     const pdfBuffer = await pdfResponse.arrayBuffer();
@@ -179,48 +140,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 function addSignaturesToContract(contractHtml: string, signatures: any[]): string {
   let signedHtml = contractHtml;
   
-  console.log('Adding signatures to contract. Found signatures:', signatures.length);
-  
   // Add signatures to the contract
   signatures.forEach((signature) => {
     const signatureImage = signature.signatureImage;
     const signerName = signature.signerName;
     const signerRole = signature.signerRole;
     
-    console.log('Processing signature for:', signerRole, signerName);
-    
-    // Create signature HTML
+    // Find signature placeholders and replace them
+    const placeholderPattern = new RegExp(`<span class="signature-placeholder">${signerRole}</span>`, 'g');
     const signatureHtml = `
-      <div style="text-align: center; margin: 10px 0; border: 1px solid #ccc; padding: 10px; display: inline-block; min-width: 200px;">
-        <img src="${signatureImage}" style="max-width: 180px; max-height: 60px; display: block; margin: 0 auto;" />
-        <div style="font-size: 12px; margin-top: 5px; font-weight: bold;">${signerName}</div>
-        <div style="font-size: 10px; color: #666;">${signerRole}</div>
+      <div style="text-align: center; margin: 10px 0;">
+        <img src="${signatureImage}" style="max-width: 200px; max-height: 80px; border: 1px solid #ccc;" />
+        <div style="font-size: 12px; margin-top: 5px;">${signerName}</div>
       </div>
     `;
     
-    // Replace signature placeholders based on role
-    if (signerRole === 'המשכיר') {
-      // Replace the landlord signature line
-      const landlordPattern = /<strong>המשכיר<\/strong>: ____________________/g;
-      signedHtml = signedHtml.replace(landlordPattern, `<strong>המשכיר</strong>: ${signatureHtml}`);
-    } else if (signerRole === 'השוכר') {
-      // Replace the tenant signature line
-      const tenantPattern = /<strong>השוכר<\/strong>: ____________________/g;
-      signedHtml = signedHtml.replace(tenantPattern, `<strong>השוכר</strong>: ${signatureHtml}`);
-    } else if (signerRole === 'ערב ראשון' || signerRole === 'ערב שני') {
-      // Add guarantor signatures after the main signatures
-      const guarantorSignature = `
-        <div class="signature-block">
-          <strong>${signerRole}</strong>: ${signatureHtml}
-          שם: <strong>${signerName}</strong>
-        </div>
-      `;
-      
-      // Add guarantor signature before the closing section
-      signedHtml = signedHtml.replace('⸻\n\n16. {{guarantorsSection}}', `${guarantorSignature}\n\n⸻\n\n16. {{guarantorsSection}}`);
-    }
+    signedHtml = signedHtml.replace(placeholderPattern, signatureHtml);
   });
   
-  console.log('Signatures added successfully');
   return signedHtml;
 }

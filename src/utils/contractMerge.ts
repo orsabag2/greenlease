@@ -156,9 +156,12 @@ export default function contractMerge(template: string, data: MergeData): string
       section += 'אנו החתומים מטה מתחייבים בזאת כלפי המשכיר לכל התחייבויות השוכר לפי הסכם השכירות לעיל. אנו מאשרים כי קראנו את ההסכם, ובמיוחד את הסעיפים הנוגעים לבטחונות (סעיף 12), ומסכימים במפורש להיות ערבים לאותן התחייבויות.\n';
       if (effectiveGuarantorsCount === '1' || effectiveGuarantorsCount === 1) {
         section += `• ערב 1: שם: ${data['guarantor1Name'] || '______________'} | ת"ז: ${data['guarantor1Id'] || '______________'} | כתובת: ${data['guarantor1Address'] || '______________'} | טלפון: ${data['guarantor1Phone'] || '______________'}\n`;
+        section += `<span class="signature-placeholder">ערב ראשון</span>\n`;
       } else if (effectiveGuarantorsCount === '2' || effectiveGuarantorsCount === 2) {
         section += `• ערב 1: שם: ${data['guarantor1Name'] || '______________'} | ת"ז: ${data['guarantor1Id'] || '______________'} | כתובת: ${data['guarantor1Address'] || '______________'} | טלפון: ${data['guarantor1Phone'] || '______________'}\n`;
+        section += `<span class="signature-placeholder">ערב ראשון</span>\n`;
         section += `• ערב 2: שם: ${data['guarantor2Name'] || '______________'} | ת"ז: ${data['guarantor2Id'] || '______________'} | כתובת: ${data['guarantor2Address'] || '______________'} | טלפון: ${data['guarantor2Phone'] || '______________'}\n`;
+        section += `<span class="signature-placeholder">ערב שני</span>\n`;
       }
       section += '\nתאריך חתימה: ________________________';
       return section;

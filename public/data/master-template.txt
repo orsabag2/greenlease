@@ -163,12 +163,12 @@
 <div class="signature-header">ולראיה באו הצדדים על החתום</div>
 
 <div class="signature-block">
-<strong>המשכיר</strong>: ____________________
+<strong>המשכיר</strong>: <span class="signature-placeholder">המשכיר</span>
 שם: <strong>{{landlordName}}</strong> | ת"ז: <strong>{{landlordId}}</strong>
 </div>
 
 <div class="signature-block">
-<strong>השוכר</strong>: ____________________
+<strong>השוכר</strong>: <span class="signature-placeholder">השוכר</span>
 שם: <strong>{{tenantName}}</strong> | ת"ז: <strong>{{tenantIdNumber}}</strong>
 </div>
 
