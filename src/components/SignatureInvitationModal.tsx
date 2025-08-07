@@ -105,6 +105,10 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     console.log('Guarantors count:', contractData.guarantorsCount);
     console.log('Guarantor1Name:', contractData.guarantor1Name);
     console.log('Guarantor2Name:', contractData.guarantor2Name);
+    console.log('LandlordName:', contractData.landlordName);
+    console.log('TenantName:', contractData.tenantName);
+    console.log('LandlordId:', contractData.landlordId);
+    console.log('TenantIdNumber:', contractData.tenantIdNumber);
 
     console.log('Created signers:', initialSigners);
     
