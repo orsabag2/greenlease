@@ -34,33 +34,91 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         continue; // Skip signers without email or name
       }
 
-      const token = randomBytes(32).toString('hex');
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
+      // Check if invitation already exists for this signer
+      const existingInvitationQuery = query(
+        collection(db, 'signatureInvitations'),
+        where('contractId', '==', contractId),
+        where('signerId', '==', signer.id),
+        where('signerType', '==', signer.type)
+      );
+      
+      const existingInvitationSnapshot = await getDocs(existingInvitationQuery);
+      let invitation;
+      let isNewInvitation = false;
 
-      const invitation = {
-        contractId,
-        signerEmail: signer.email,
-        signerName: signer.name,
-        signerType: signer.type,
-        signerId: signer.id,
-        signerRole: signer.role,
-        invitationToken: token,
-        status: 'sent',
-        createdAt: new Date(),
-        expiresAt,
-        sentAt: new Date(),
-        resendCount: 0
-      };
+      if (!existingInvitationSnapshot.empty) {
+        // Update existing invitation
+        const existingInvitationDoc = existingInvitationSnapshot.docs[0];
+        const existingInvitation = existingInvitationDoc.data();
+        
+        // Generate new token for security
+        const newToken = randomBytes(32).toString('hex');
+        const newExpiresAt = new Date();
+        newExpiresAt.setDate(newExpiresAt.getDate() + 7); // 7 days expiry
 
-      // Save invitation to Firestore
-      const invitationRef = await addDoc(collection(db, 'signatureInvitations'), invitation);
-      invitations.push({ ...invitation, id: invitationRef.id });
+        // Update the existing invitation
+        await updateDoc(doc(db, 'signatureInvitations', existingInvitationDoc.id), {
+          signerEmail: signer.email, // Update email in case it changed
+          signerName: signer.name,   // Update name in case it changed
+          invitationToken: newToken,
+          status: 'sent',
+          expiresAt: newExpiresAt,
+          sentAt: new Date(),
+          resendCount: (existingInvitation.resendCount || 0) + 1
+        });
+
+        invitation = {
+          id: existingInvitationDoc.id,
+          contractId,
+          signerEmail: signer.email,
+          signerName: signer.name,
+          signerType: signer.type,
+          signerId: signer.id,
+          signerRole: signer.role,
+          invitationToken: newToken,
+          status: 'sent',
+          createdAt: existingInvitation.createdAt,
+          expiresAt: newExpiresAt,
+          sentAt: new Date(),
+          resendCount: (existingInvitation.resendCount || 0) + 1
+        };
+
+        console.log(`Updated existing invitation for ${signer.name} (${signer.email})`);
+      } else {
+        // Create new invitation
+        const token = randomBytes(32).toString('hex');
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
+
+        const newInvitation = {
+          contractId,
+          signerEmail: signer.email,
+          signerName: signer.name,
+          signerType: signer.type,
+          signerId: signer.id,
+          signerRole: signer.role,
+          invitationToken: token,
+          status: 'sent',
+          createdAt: new Date(),
+          expiresAt,
+          sentAt: new Date(),
+          resendCount: 0
+        };
+
+        // Save invitation to Firestore
+        const invitationRef = await addDoc(collection(db, 'signatureInvitations'), newInvitation);
+        invitation = { ...newInvitation, id: invitationRef.id };
+        isNewInvitation = true;
+
+        console.log(`Created new invitation for ${signer.name} (${signer.email})`);
+      }
+
+      invitations.push(invitation);
 
       // Send invitation email
       try {
         console.log(`Attempting to send invitation email to ${signer.email} for ${signer.name}`);
-        await sendInvitationEmail(signer, token, contractData);
+        await sendInvitationEmail(signer, invitation.invitationToken, contractData);
         console.log(`✓ Email sent successfully to ${signer.email}`);
       } catch (emailError) {
         console.error(`✗ Email sending failed for ${signer.email}:`, emailError);
