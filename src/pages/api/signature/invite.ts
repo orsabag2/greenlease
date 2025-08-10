@@ -313,7 +313,7 @@ async function sendInvitationEmail(signer: any, token: string, contractData: any
     <body>
       <div class="email-container">
         <div class="header">
-          <img src="cid:logo@2x.png" alt="GreenLease" class="logo">
+          <h1 style="color: white; margin: 0; font-size: 24px;">GreenLease</h1>
         </div>
         
         <div class="main-content">
@@ -367,13 +367,14 @@ async function sendInvitationEmail(signer: any, token: string, contractData: any
     to: signer.email,
     subject: `הזמנה לחתימה דיגיטלית - כתובת הנכס: ${propertyAddress}`,
     html: emailHtml,
-    attachments: [
-      {
-        filename: 'logo@2x.png',
-        path: './public/logo@2x.png',
-        cid: 'logo@2x.png'
-      }
-    ]
+    // Temporarily remove attachments to test if that's causing the issue
+    // attachments: [
+    //   {
+    //     filename: 'logo@2x.png',
+    //     path: './public/logo@2x.png',
+    //     cid: 'logo@2x.png'
+    //   }
+    // ]
   });
   
   console.log('✓ Email sent successfully:', {

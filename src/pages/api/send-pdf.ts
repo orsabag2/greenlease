@@ -219,12 +219,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       <body>
         <div class="email-container">
           <div class="header">
-            <img src="cid:logo@2x.png" alt="GreenLease" class="logo">
+            <h1 style="color: #281D57; margin: 0; font-size: 24px;">GreenLease</h1>
           </div>
           
           <div class="main-content">
             <div class="illustration">
-              <img src="cid:ready-for-sign.png" alt="Contract Ready for Signing">
+              <div style="font-size: 48px; margin: 20px 0;">📄</div>
             </div>
             
             <h1 class="title">החוזה שלך מוכן!</h1>
@@ -270,16 +270,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           filename: 'contract.pdf',
           content: pdfBuffer,
         },
-        {
-          filename: 'logo@2x.png',
-          path: './public/logo@2x.png',
-          cid: 'logo@2x.png'
-        },
-        {
-          filename: 'ready-for-sign.png',
-          path: './public/ready-for-sign.png',
-          cid: 'ready-for-sign.png'
-        }
+        // Temporarily remove image attachments to test if that's causing the issue
+        // {
+        //   filename: 'logo@2x.png',
+        //   path: './public/logo@2x.png',
+        //   cid: 'logo@2x.png'
+        // },
+        // {
+        //   filename: 'ready-for-sign.png',
+        //   path: './public/ready-for-sign.png',
+        //   cid: 'ready-for-sign.png'
+        // }
       ],
     });
 
