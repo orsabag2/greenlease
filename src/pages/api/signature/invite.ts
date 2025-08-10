@@ -59,9 +59,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Send invitation email
       try {
+        console.log(`Attempting to send invitation email to ${signer.email} for ${signer.name}`);
         await sendInvitationEmail(signer, token, contractData);
+        console.log(`✓ Email sent successfully to ${signer.email}`);
       } catch (emailError) {
-        console.error('Email sending failed:', emailError);
+        console.error(`✗ Email sending failed for ${signer.email}:`, emailError);
+        console.error('Email error details:', {
+          signerEmail: signer.email,
+          signerName: signer.name,
+          error: emailError instanceof Error ? emailError.message : 'Unknown error',
+          stack: emailError instanceof Error ? emailError.stack : undefined
+        });
         // Continue with invitation creation even if email fails
       }
     }
@@ -92,11 +100,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 async function sendInvitationEmail(signer: any, token: string, contractData: any) {
+  console.log('=== SEND INVITATION EMAIL STARTED ===');
+  console.log('Signer:', { email: signer.email, name: signer.name, role: signer.role });
+  
   // Check if Gmail credentials are available
   if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
     console.warn('Gmail credentials not configured, skipping email sending');
-    return;
+    throw new Error('Gmail credentials not configured');
   }
+  
+  console.log('Gmail credentials available:', {
+    user: process.env.GMAIL_USER ? '✓' : '✗',
+    pass: process.env.GMAIL_PASS ? '✓' : '✗'
+  });
+  
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -104,6 +121,16 @@ async function sendInvitationEmail(signer: any, token: string, contractData: any
       pass: process.env.GMAIL_PASS,
     },
   });
+  
+  // Verify transporter configuration
+  try {
+    console.log('Verifying transporter configuration...');
+    await transporter.verify();
+    console.log('✓ Transporter verified successfully');
+  } catch (verifyError) {
+    console.error('✗ Transporter verification failed:', verifyError);
+    throw new Error(`Transporter verification failed: ${verifyError instanceof Error ? verifyError.message : 'Unknown error'}`);
+  }
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
   const signUrl = `${baseUrl}/signature/${token}`;
@@ -327,7 +354,15 @@ async function sendInvitationEmail(signer: any, token: string, contractData: any
     </html>
   `;
 
-  await transporter.sendMail({
+  console.log('Sending email with details:', {
+    from: `"GreenLease" <${process.env.GMAIL_USER}>`,
+    to: signer.email,
+    subject: `הזמנה לחתימה דיגיטלית - כתובת הנכס: ${propertyAddress}`,
+    hasHtml: !!emailHtml,
+    hasAttachments: true
+  });
+  
+  const result = await transporter.sendMail({
     from: `"GreenLease" <${process.env.GMAIL_USER}>`,
     to: signer.email,
     subject: `הזמנה לחתימה דיגיטלית - כתובת הנכס: ${propertyAddress}`,
@@ -339,5 +374,10 @@ async function sendInvitationEmail(signer: any, token: string, contractData: any
         cid: 'logo@2x.png'
       }
     ]
+  });
+  
+  console.log('✓ Email sent successfully:', {
+    messageId: result.messageId,
+    to: signer.email
   });
 } 
