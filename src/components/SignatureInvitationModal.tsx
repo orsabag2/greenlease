@@ -990,12 +990,12 @@ ${signatureLines}${guarantorSignatureLines}`;
                         type="email"
                         value={signer.email || ''}
                         onChange={(e) => updateSignerEmail(index, e.target.value)}
-                        placeholder={allSigned ? "לא ניתן לערוך - הכל חתום" : "הזן מייל"}
-                        disabled={allSigned}
-                        className={`px-3 py-2 border border-gray-300 rounded text-sm md:w-48 w-full ${allSigned ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                        placeholder={signer.status === 'signed' ? "לא ניתן לערוך - כבר חתם" : allSigned ? "לא ניתן לערוך - הכל חתום" : "הזן מייל"}
+                        disabled={allSigned || signer.status === 'signed'}
+                        className={`px-3 py-2 border border-gray-300 rounded text-sm md:w-48 w-full ${(allSigned || signer.status === 'signed') ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                         style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
                       />
-                      {!allSigned && signer.email && (
+                      {!allSigned && signer.email && signer.status !== 'signed' && (
                         <>
                           {signer.status === 'not_sent' ? (
                             <button
