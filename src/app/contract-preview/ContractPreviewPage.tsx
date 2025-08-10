@@ -701,143 +701,162 @@ ${signatureLines}`;
                 {/* Dropdown Menu */}
                 {showDropdown && (
                   <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 min-w-[200px] z-50 contract-dropdown-menu">
-                    <button
-                      className="w-full px-4 py-3 text-right hover:bg-gray-50 flex items-center justify-between text-sm font-medium text-[#281D57] transition-colors contract-dropdown-item"
-                      onClick={async () => {
-                        setShowDropdown(false);
-                        setDownloading(true);
-                        try {
-                          const allSigned = signers.length > 0 && signers.every(signer => signer.status === 'signed');
-                          
-                          if (allSigned && contractId) {
-                            // For fully signed contracts, process the contract with signatures (same as SignatureInvitationModal)
-                            const contractNode = document.querySelector('.contract-preview');
-                            if (!contractNode) {
-                              alert('לא נמצא תוכן החוזה להורדה');
-                              return;
-                            }
+                    {/* Download button - show only in dev or when all signed in prod */}
+                    {(() => {
+                      const isDevelopment = process.env.NODE_ENV === 'development' || 
+                                           typeof window !== 'undefined' && 
+                                           (window.location.hostname === 'localhost' || 
+                                            window.location.hostname.includes('vercel.app'));
+                      
+                      const allSigned = signers.length > 0 && signers.every(signer => signer.status === 'signed');
+                      
+                      // Show in dev environment OR when all parties have signed in production
+                      const shouldShow = isDevelopment || allSigned;
+                      
+                      if (!shouldShow) {
+                        return null;
+                      }
+                      
+                      return (
+                        <button
+                          className="w-full px-4 py-3 text-right hover:bg-gray-50 flex items-center justify-between text-sm font-medium text-[#281D57] transition-colors contract-dropdown-item"
+                          onClick={async () => {
+                            setShowDropdown(false);
+                            setDownloading(true);
+                            try {
+                              const allSigned = signers.length > 0 && signers.every(signer => signer.status === 'signed');
+                              
+                              if (allSigned && contractId) {
+                                // For fully signed contracts, process the contract with signatures (same as SignatureInvitationModal)
+                                const contractNode = document.querySelector('.contract-preview');
+                                if (!contractNode) {
+                                  alert('לא נמצא תוכן החוזה להורדה');
+                                  return;
+                                }
 
-                            // Get all CSS styles
-                            let css = '';
-                            for (const sheet of Array.from(document.styleSheets)) {
-                              try {
-                                css += Array.from(sheet.cssRules).map(rule => rule.cssText).join(' ');
-                              } catch (e) { /* ignore CORS issues */ }
-                            }
+                                // Get all CSS styles
+                                let css = '';
+                                for (const sheet of Array.from(document.styleSheets)) {
+                                  try {
+                                    css += Array.from(sheet.cssRules).map(rule => rule.cssText).join(' ');
+                                  } catch (e) { /* ignore CORS issues */ }
+                                }
 
-                            // Get the HTML and process signatures (same logic as SignatureInvitationModal)
-                            let html = contractNode.outerHTML;
-                            
-                            // Add page break for section 16
-                            html = html.replace(
-                              /(16\.\s*נספח: כתב ערבות)/g,
-                              '<div style="page-break-before: always;"></div>$1'
-                            );
+                                // Get the HTML and process signatures (same logic as SignatureInvitationModal)
+                                let html = contractNode.outerHTML;
+                                
+                                // Add page break for section 16
+                                html = html.replace(
+                                  /(16\.\s*נספח: כתב ערבות)/g,
+                                  '<div style="page-break-before: always;"></div>$1'
+                                );
 
-                            // Replace signature placeholders with actual signatures
-                            const signedSigners = signers.filter(signer => signer.status === 'signed' && signer.signatureImage);
-                            
-                            // Replace landlord signature
-                            const landlordSigner = signedSigners.find(signer => signer.signerType === 'landlord');
-                            if (landlordSigner && landlordSigner.signatureImage) {
-                              html = html.replace(
-                                /<span class="signature-placeholder">המשכיר<\/span>/g,
-                                `<img src="${landlordSigner.signatureImage}" alt="חתימת המשכיר" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
-                              );
-                            }
+                                // Replace signature placeholders with actual signatures
+                                const signedSigners = signers.filter(signer => signer.status === 'signed' && signer.signatureImage);
+                                
+                                // Replace landlord signature
+                                const landlordSigner = signedSigners.find(signer => signer.signerType === 'landlord');
+                                if (landlordSigner && landlordSigner.signatureImage) {
+                                  html = html.replace(
+                                    /<span class="signature-placeholder">המשכיר<\/span>/g,
+                                    `<img src="${landlordSigner.signatureImage}" alt="חתימת המשכיר" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+                                  );
+                                }
 
-                            // Replace tenant signatures
-                            const tenantSigners = signedSigners.filter(signer => signer.signerType === 'tenant');
-                            tenantSigners.forEach((tenantSigner, index) => {
-                              const placeholderText = tenantSigner.role === 'השוכר' ? 'השוכר' : `שוכר ${index + 1}`;
-                              const regex = new RegExp(`<span class="signature-placeholder">${placeholderText}<\/span>`, 'g');
-                              html = html.replace(
-                                regex,
-                                `<img src="${tenantSigner.signatureImage}" alt="חתימת ${tenantSigner.name}" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
-                              );
-                            });
+                                // Replace tenant signatures
+                                const tenantSigners = signedSigners.filter(signer => signer.signerType === 'tenant');
+                                tenantSigners.forEach((tenantSigner, index) => {
+                                  const placeholderText = tenantSigner.role === 'השוכר' ? 'השוכר' : `שוכר ${index + 1}`;
+                                  const regex = new RegExp(`<span class="signature-placeholder">${placeholderText}<\/span>`, 'g');
+                                  html = html.replace(
+                                    regex,
+                                    `<img src="${tenantSigner.signatureImage}" alt="חתימת ${tenantSigner.name}" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+                                  );
+                                });
 
-                            // Replace guarantor signatures
-                            const guarantorSigners = signedSigners.filter(signer => signer.signerType === 'guarantor');
-                            guarantorSigners.forEach((guarantorSigner) => {
-                              const placeholderText = guarantorSigner.role;
-                              const regex = new RegExp(`<span class="signature-placeholder">${placeholderText}<\/span>`, 'g');
-                              html = html.replace(
-                                regex,
-                                `<img src="${guarantorSigner.signatureImage}" alt="חתימת ${guarantorSigner.name}" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
-                              );
-                            });
+                                // Replace guarantor signatures
+                                const guarantorSigners = signedSigners.filter(signer => signer.signerType === 'guarantor');
+                                guarantorSigners.forEach((guarantorSigner) => {
+                                  const placeholderText = guarantorSigner.role;
+                                  const regex = new RegExp(`<span class="signature-placeholder">${placeholderText}<\/span>`, 'g');
+                                  html = html.replace(
+                                    regex,
+                                    `<img src="${guarantorSigner.signatureImage}" alt="חתימת ${guarantorSigner.name}" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+                                  );
+                                });
 
-                            // Generate PDF with signatures
-                            const response = await fetch('/api/generate-pdf', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ html, css }),
-                            });
-                            
-                            if (response.ok) {
-                              const blob = await response.blob();
-                              const url = window.URL.createObjectURL(blob);
-                              const a = document.createElement('a');
-                              a.href = url;
-                              a.download = `signed_contract_${contractId}.pdf`;
-                              document.body.appendChild(a);
-                              a.click();
-                              a.remove();
-                              window.URL.revokeObjectURL(url);
-                              alert('החוזה החתום הורד בהצלחה!');
-                            } else {
-                              const errorText = await response.text();
-                              alert('שגיאה בהורדת החוזה החתום: ' + errorText);
+                                // Generate PDF with signatures
+                                const response = await fetch('/api/generate-pdf', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ html, css }),
+                                });
+                                
+                                if (response.ok) {
+                                  const blob = await response.blob();
+                                  const url = window.URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = `signed_contract_${contractId}.pdf`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  a.remove();
+                                  window.URL.revokeObjectURL(url);
+                                  alert('החוזה החתום הורד בהצלחה!');
+                                } else {
+                                  const errorText = await response.text();
+                                  alert('שגיאה בהורדת החוזה החתום: ' + errorText);
+                                }
+                              } else {
+                                // Regular PDF generation for unsigned contracts
+                                const contractNode = document.querySelector('.contract-preview');
+                                if (!contractNode) {
+                                  alert('לא נמצא תוכן החוזה להורדה');
+                                  return;
+                                }
+                                let css = '';
+                                for (const sheet of Array.from(document.styleSheets)) {
+                                  try {
+                                    css += Array.from(sheet.cssRules).map(rule => rule.cssText).join(' ');
+                                  } catch (e) { /* ignore CORS issues */ }
+                                }
+                                const html = contractNode.outerHTML;
+                                const response = await fetch('/api/generate-pdf', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ html, css }),
+                                });
+                                if (response.ok) {
+                                  const blob = await response.blob();
+                                  const url = window.URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = 'contract.pdf';
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  a.remove();
+                                  window.URL.revokeObjectURL(url);
+                                } else {
+                                  alert('PDF generation failed');
+                                }
+                              }
+                            } finally {
+                              setDownloading(false);
                             }
-                          } else {
-                            // Regular PDF generation for unsigned contracts
-                            const contractNode = document.querySelector('.contract-preview');
-                            if (!contractNode) {
-                              alert('לא נמצא תוכן החוזה להורדה');
-                              return;
-                            }
-                            let css = '';
-                            for (const sheet of Array.from(document.styleSheets)) {
-                              try {
-                                css += Array.from(sheet.cssRules).map(rule => rule.cssText).join(' ');
-                              } catch (e) { /* ignore CORS issues */ }
-                            }
-                            const html = contractNode.outerHTML;
-                            const response = await fetch('/api/generate-pdf', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ html, css }),
-                            });
-                            if (response.ok) {
-                              const blob = await response.blob();
-                              const url = window.URL.createObjectURL(blob);
-                              const a = document.createElement('a');
-                              a.href = url;
-                              a.download = 'contract.pdf';
-                              document.body.appendChild(a);
-                              a.click();
-                              a.remove();
-                              window.URL.revokeObjectURL(url);
-                            } else {
-                              alert('PDF generation failed');
-                            }
-                          }
-                        } finally {
-                          setDownloading(false);
-                        }
-                      }}
-                      disabled={downloading}
-                      style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
-                    >
-                      <span>{(() => {
-                        const allSigned = signers.length > 0 && signers.every(signer => signer.status === 'signed');
-                        return allSigned ? 'הורד חוזה חתום' : 'הורד PDF';
-                      })()}</span>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                      </svg>
-                    </button>
+                          }}
+                          disabled={downloading}
+                          style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                        >
+                          <span>{(() => {
+                            const allSigned = signers.length > 0 && signers.every(signer => signer.status === 'signed');
+                            return allSigned ? 'הורד חוזה חתום' : 'הורד PDF';
+                          })()}</span>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                          </svg>
+                        </button>
+                      );
+                    })()}
                     
                     <button
                       className="w-full px-4 py-3 text-right hover:bg-gray-50 flex items-center justify-between text-sm font-medium text-[#281D57] transition-colors contract-dropdown-item"

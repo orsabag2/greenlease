@@ -1100,17 +1100,31 @@ ${signatureLines}${guarantorSignatureLines}`;
               </button>
             )}
             
-            {/* Download signed PDF button - show when there are signed signers */}
-            {hasSignedSigners && (
-              <button
-                onClick={downloadSignedContract}
-                disabled={sending}
-                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 disabled:opacity-50 transition-colors border border-gray-300"
-                style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
-              >
-                {sending ? 'מוריד...' : 'הורד PDF חתום'}
-              </button>
-            )}
+            {/* Download signed PDF button - show only in dev or when all signed in prod */}
+            {(() => {
+              const isDevelopment = process.env.NODE_ENV === 'development' || 
+                                   typeof window !== 'undefined' && 
+                                   (window.location.hostname === 'localhost' || 
+                                    window.location.hostname.includes('vercel.app'));
+              
+              // Show in dev environment OR when all parties have signed in production
+              const shouldShow = isDevelopment || allSigned;
+              
+              if (!shouldShow) {
+                return null;
+              }
+              
+              return (
+                <button
+                  onClick={downloadSignedContract}
+                  disabled={sending}
+                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 disabled:opacity-50 transition-colors border border-gray-300"
+                  style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                >
+                  {sending ? 'מוריד...' : 'הורד PDF חתום'}
+                </button>
+              );
+            })()}
           </div>
         </div>
       </div>
