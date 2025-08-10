@@ -15,12 +15,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return;
   }
 
-  const { contractId, signerId, signerName, signerType, signature, ipAddress, userAgent } = req.body;
+  const { contractId, signerId, signerName, signerType, signerRole, signature, ipAddress, userAgent } = req.body;
   
   console.log('Extracted fields:', { contractId, signerId, signerName, signerType, signatureLength: signature?.length });
 
-  if (!contractId || !signerId || !signerName || !signerType || !signature) {
-    console.log('Missing required fields:', { contractId: !!contractId, signerId: !!signerId, signerName: !!signerName, signerType: !!signerType, signature: !!signature });
+  if (!contractId || !signerId || !signerName || !signerType || !signerRole || !signature) {
+    console.log('Missing required fields:', { contractId: !!contractId, signerId: !!signerId, signerName: !!signerName, signerType: !!signerType, signerRole: !!signerRole, signature: !!signature });
     res.status(400).json({ error: 'Missing required fields' });
     return;
   }
@@ -34,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       signerName,
       signerType,
       signerId,
-      signerRole: signerType === 'landlord' ? 'המשכיר' : 'השוכר',
+      signerRole: signerRole,
       invitationToken: uuidv4(),
       status: 'signed', // Mark as signed immediately
       createdAt: new Date(),

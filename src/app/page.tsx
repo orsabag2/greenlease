@@ -661,8 +661,27 @@ export default function HomePage() {
     if (Array.isArray(answers.tenants) && answers.tenants[0]) {
       mergedAnswers = { ...mergedAnswers, ...answers.tenants[0] };
     }
-    // TODO: Support multiple tenants/landlords in contract template
     let merged = contractMerge(template, mergedAnswers as MergeData);
+    
+    // Handle multiple tenants in the main contract section (like contractGeneration.ts does)
+    if (Array.isArray(answers.tenants) && answers.tenants.length > 1) {
+      const tenantLines = answers.tenants.map((tenant: any, idx: number) => {
+        const name = tenant.tenantName || '-';
+        const id = tenant.tenantIdNumber || '-';
+        const city = tenant.tenantCity || '-';
+        const phone = tenant.tenantPhone || '-';
+        return `${idx + 1}. <strong>השוכר:</strong> <strong>${name}</strong>, ת"ז <strong>${id}</strong>, עיר מגורים: <strong>${city}</strong>, טלפון: <strong>${phone}</strong>`;
+      }).join('\n');
+      
+      // Replace only the first occurrence (in the main contract section)
+      const firstOccurrence = merged.indexOf('השוכר:');
+      if (firstOccurrence !== -1) {
+        const beforeText = merged.substring(0, firstOccurrence);
+        const afterText = merged.substring(firstOccurrence + 7);
+        const nextNewline = afterText.indexOf('\n');
+        merged = beforeText + tenantLines + afterText.substring(nextNewline);
+      }
+    }
     // Remove conditional blocks (simple MVP: no #if logic)
     merged = merged.replace(/{{#if [^}]+}}([\s\S]*?){{\/if}}/g, (m, content) => {
       // Check if the condition is met
@@ -2255,7 +2274,7 @@ export default function HomePage() {
                             (שכירות בלתי מוגנת)
                           </div>
                           <div className="contract-date-row text-center text-base text-gray-800 mb-3" style={{ fontFamily: 'var(--contract-font)', width: '100%', fontSize: '1.4rem' }}>
-                            שנעשה ונחתם ב_______, בתאריך _______.
+                            חוזה זה נחתם באמצעים דיגיטליים בהתאם לחוק חתימה אלקטרונית, התשס"א–2001.
                           </div>
                           <div className="contract-preview" style={{ fontFamily: 'var(--contract-font)', fontSize: '1.3rem', fontWeight: 500, lineHeight: 1.85, color: '#222', direction: 'rtl', whiteSpace: 'pre-wrap', width: '100%' }}>
                             {/* Show only the first ~30 lines of the contract, with HTML tags removed */}

@@ -204,7 +204,7 @@ const SignInPage: React.FC = () => {
               style={{
                 width: '20px',
                 height: '20px',
-                accentColor: '#4A1D96',
+                accentColor: '#38E18E',
                 flexShrink: 0,
                 marginTop: '3px',
                 alignSelf: 'flex-start'
@@ -251,7 +251,7 @@ const SignInPage: React.FC = () => {
               style={{
                 width: '20px',
                 height: '20px',
-                accentColor: '#4A1D96',
+                accentColor: '#38E18E',
                 flexShrink: 0,
                 marginTop: '3px',
                 alignSelf: 'flex-start'

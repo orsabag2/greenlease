@@ -113,7 +113,7 @@ async function generateAndSendFinalContract(contractId: string) {
     const signatures = signaturesSnapshot.docs.map(doc => doc.data());
 
     // Generate contract with signatures
-    const contractWithSignatures = await generateContractWithSignatures(contractData, signatures);
+    const contractWithSignatures = await generateContractWithSignatures(contractData, signatures, contractId);
 
     // Send final contract to all parties
     await sendFinalContractToAllParties(contractData, signatures, contractWithSignatures);
@@ -132,15 +132,58 @@ async function generateAndSendFinalContract(contractId: string) {
   }
 }
 
-async function generateContractWithSignatures(contractData: any, signatures: any[]) {
-  // This is a placeholder - you'll need to implement the actual PDF generation
-  // with signatures placed above the signature lines
-  console.log('Generating contract with signatures:', { contractData, signatures });
-  
-  // For now, return a mock PDF URL
-  return {
-    pdfUrl: `/api/generate-final-contract?contractId=${contractData.id}`
-  };
+async function generateContractWithSignatures(contractData: any, signatures: any[], contractId?: string) {
+  try {
+    // Use the exact same approach as download-contract API which we know works
+    const answers = contractData.answers || contractData;
+
+    // Get the template (same as download-contract)
+    const fs = require('fs');
+    const path = require('path');
+    const templatePath = path.join(process.cwd(), 'public', 'data', 'master-template.txt');
+    const template = fs.readFileSync(templatePath, 'utf8');
+    
+    // Use the shared generateContractHtml function (same as download-contract)
+    const { generateContractHtml } = require('@/utils/contractGeneration');
+    const contractHtml = generateContractHtml(answers, template, signatures);
+    
+    // Convert to PDF using PDFShift (same as download-contract)
+    const pdfResponse = await fetch('https://api.pdfshift.io/v3/convert/pdf', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': 'sk_e0e70090e19433315fd54ce22045e16600e7bf2f',
+      },
+      body: JSON.stringify({
+        source: contractHtml,
+        landscape: false,
+        margin: {
+          top: '3.5cm',
+          bottom: '3.5cm',
+          left: '2.5cm',
+          right: '2.5cm',
+        },
+      }),
+    });
+
+    if (!pdfResponse.ok) {
+      const errorText = await pdfResponse.text();
+      throw new Error(`Failed to generate PDF: ${pdfResponse.status} ${errorText}`);
+    }
+
+    const pdfBuffer = await pdfResponse.arrayBuffer();
+    
+    // For now, return the PDF buffer and a temporary URL
+    // In a production environment, you'd want to save this to cloud storage
+    return {
+      pdfBuffer: Buffer.from(pdfBuffer),
+      pdfUrl: `/api/signature/download-contract?contractId=${contractId || contractData.id || 'unknown'}`,
+      success: true
+    };
+  } catch (error) {
+    console.error('Error generating contract with signatures:', error);
+    throw error;
+  }
 }
 
 async function sendFinalContractToAllParties(contractData: any, signatures: any[], finalContract: any) {

@@ -69,7 +69,7 @@ export default function ContractPdfDocument({ contract, meta }: { contract: stri
         <Text style={styles.title}>הסכם שכירות למגורים</Text>
         <Text style={styles.subtitle}>(שכירות בלתי מוגנת)</Text>
         <Text style={styles.dateRow}>
-          {`שנעשה ונחתם ב${meta?.includeAgreementDetails ? (meta?.agreementCity || '_______') : '_______'}, בתאריך ${meta?.includeAgreementDetails ? formatDate(meta?.agreementDate) : '_______'}.`}
+          חוזה זה נחתם באמצעים דיגיטליים בהתאם לחוק חתימה אלקטרונית, התשס"א–2001.
         </Text>
         <View>
           {lines.map((line, idx) => (

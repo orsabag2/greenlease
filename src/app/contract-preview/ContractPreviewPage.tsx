@@ -114,7 +114,13 @@ export default function ContractPreviewPage() {
   const [loadingPayment, setLoadingPayment] = useState(true);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [contractId, setContractId] = useState<string | null>(null);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [signers, setSigners] = useState<SignatureStatus[]>([]);
+  const [loadingSignatures, setLoadingSignatures] = useState(false);
+  const [editCount, setEditCount] = useState(0);
+  const [maxEdits, setMaxEdits] = useState(3);
   const router = useRouter();
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
 
   // Function to send signature invitations
   const sendSignatureInvitations = async (signers: SignatureStatus[]) => {
@@ -146,12 +152,101 @@ export default function ContractPreviewPage() {
 
       const result = await response.json();
       alert(`נשלחו ${result.invitations.length} הזמנות בהצלחה!`);
-      setShowSignatureModal(false);
+      // Keep modal open - let user close it manually
+      // Refresh signature statuses after sending invitations
+      await fetchSignatureStatuses();
     } catch (error) {
       console.error('Error sending invitations:', error);
       alert('שגיאה בשליחת ההזמנות: ' + (error instanceof Error ? error.message : 'Unknown error'));
     }
   };
+
+  // Function to fetch signature statuses
+  const fetchSignatureStatuses = async () => {
+    if (!contractId) return;
+    
+    try {
+      setLoadingSignatures(true);
+      const response = await fetch(`/api/signature/status?contractId=${contractId}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSigners(data.signers || []);
+      } else {
+        console.error('Failed to fetch signature statuses');
+      }
+    } catch (error) {
+      console.error('Error fetching signature statuses:', error);
+    } finally {
+      setLoadingSignatures(false);
+    }
+  };
+
+  // Function to fetch contract edit data
+  const fetchContractEditData = async () => {
+    if (!contractId) return;
+    
+    try {
+      const contractDoc = await getDoc(doc(db, 'formAnswers', contractId));
+      const contractData = contractDoc.data();
+      
+      if (contractData) {
+        setEditCount(contractData.editCount || 0);
+        setMaxEdits(contractData.maxEdits || 3);
+      }
+    } catch (error) {
+      console.error('Error fetching contract edit data:', error);
+    }
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDropdown]);
+
+  // Fetch signature statuses and edit data when contractId is available
+  useEffect(() => {
+    if (contractId) {
+      fetchSignatureStatuses();
+      fetchContractEditData();
+    }
+  }, [contractId]);
+
+  // Close dropdown when clicking on signature button
+  useEffect(() => {
+    if (showSignatureModal) {
+      setShowDropdown(false);
+    }
+  }, [showSignatureModal]);
+
+  // Close dropdown when pressing Escape key
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowDropdown(false);
+      }
+    };
+
+    if (showDropdown) {
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [showDropdown]);
 
   // Authentication check
   useEffect(() => {
@@ -268,9 +363,17 @@ export default function ContractPreviewPage() {
 
         // Log the data passed to contractMerge for verification
         console.log('ContractPreviewPage: data passed to contractMerge:', data);
+        console.log('ContractPreviewPage: localStorage contractMeta:', localStorage.getItem('contractMeta'));
+        console.log('ContractPreviewPage: lateInterestType in data:', data.lateInterestType);
+        console.log('ContractPreviewPage: evacuationPenaltyType in data:', data.evacuationPenaltyType);
 
         // Merge template with data
         let mergedContract = contractMerge(template, data);
+        
+        // Debug: Log contract after merge to see section 5
+        console.log('Contract after merge:', mergedContract);
+        const section5Content = mergedContract.match(/5\. פיצויים[\s\S]*?⸻/);
+        console.log('Section 5 content found:', section5Content);
 
         // Remove conditional blocks (simple MVP: no #if logic)
         mergedContract = mergedContract.replace(/{{#if [^}]+}}([\s\S]*?){{\/if}}/g, (m, content) => {
@@ -308,6 +411,35 @@ export default function ContractPreviewPage() {
           .replace(/^\s*-\s*\n/gm, '\n') // Remove dashes at start of lines
           .replace(/\n\s*-\s*\n/g, '\n') // Remove standalone dash lines
           .replace(/\n{3,}/g, '\n\n'); // Remove excessive newlines
+
+        // Apply bold formatting to match contract generation
+        mergedContract = mergedContract
+          // Add bold to main section numbers AND titles (e.g., "1. פרטי המושכר", "2. תקופת השכירות", etc.)
+          .replace(/^(\d+\.\s*)([^0-9\n]+?)(?=\n|$)/gm, '<strong class="main-section-title" style="font-size: 1.2em; font-weight: 700;">$1$2</strong>')
+          // Add bold to subsection numbers (e.g., 1.1, 1.2, etc.)
+          .replace(/^(\d+\.\d+)(?!<)/gm, '<strong class="subsection-number">$1</strong>')
+          // Add bold to "המושכר" in quotes
+          .replace(/"המושכר"/g, '<strong>"המושכר"</strong>')
+          // Add bold to "המשכיר" in quotes
+          .replace(/"המשכיר"/g, '<strong>"המשכיר"</strong>')
+          // Add bold to "השוכר" in quotes
+          .replace(/"השוכר"/g, '<strong>"השוכר"</strong>')
+          // Add bold to key terms
+          .replace(/בין:/g, '<strong>בין:</strong>')
+          .replace(/המשכיר:/g, '<strong>המשכיר:</strong>')
+          .replace(/\(להלן: "המשכיר"\)/g, '(להלן: <strong>"המשכיר"</strong>)')
+          .replace(/לבין:/g, '\n\n<strong>לבין:</strong>')
+          .replace(/השוכר :/g, '<strong>השוכר :</strong>')
+          .replace(/השוכר:/g, '<strong>השוכר:</strong>')
+          .replace(/\(להלן: "השוכר"\)/g, '(להלן: <strong>"השוכר"</strong>)')
+          .replace(/והואיל/g, '<strong>והואיל</strong>')
+          .replace(/^הואיל/g, '<strong>הואיל</strong>');
+
+        // Add page break for "נספח: כתב ערבות" section
+        mergedContract = mergedContract.replace(
+          /(16\.\s*נספח: כתב ערבות)/g,
+          '<div class="page-break-appendix" style="page-break-before: always;"></div>$1'
+        );
 
         // Additional cleanup: Remove garden maintenance clause if not selected
         if (data.gardenMaintenance !== "כן, ברצוני שהשוכר יהיה אחראי על תחזוקת הגינה") {
@@ -353,13 +485,13 @@ export default function ContractPreviewPage() {
             mergedContract = beforeText + tenantLines + afterText.substring(nextNewline);
           }
 
-          // For section 15 (signatures), create simpler signature lines
+          // For section 15 (signatures), preserve the signature placeholders from template
           const signatureLines = rawData.tenants.map((tenant: any, idx: number) => {
             const name = tenant.tenantName || '-';
             const id = tenant.tenantIdNumber || '-';
             return `
 <div class="signature-block">
-<strong>שוכר ${idx + 1}</strong>: ____________________
+<strong>שוכר ${idx + 1}</strong>: <span class="signature-placeholder">שוכר ${idx + 1}</span>
 שם: <strong>${name}</strong> | ת"ז: <strong>${id}</strong>
 </div>`;
           }).join('\n');
@@ -370,24 +502,42 @@ export default function ContractPreviewPage() {
 <div class="signature-header">ולראיה באו הצדדים על החתום</div>
 
 <div class="signature-block">
-<strong>המשכיר</strong>: ____________________
+<strong>המשכיר</strong>: <span class="signature-placeholder">המשכיר</span>
 שם: <strong>${data.landlordName}</strong> | ת"ז: <strong>${data.landlordId}</strong>
 </div>
 
 ${signatureLines}`;
 
-          // Find and replace the entire section 15
-          const section15Start = mergedContract.indexOf('15. חתימות');
-          const section15End = mergedContract.indexOf('⸻\n\n16.');
+          // Find and replace the entire section 15 using regex to handle formatting
+          const section15Regex = /<strong[^>]*>15\.<\/strong>\s*חתימות|15\.\s*חתימות/;
+          const section15Match = mergedContract.match(section15Regex);
           
-          if (section15Start !== -1 && section15End !== -1) {
-            mergedContract = 
-              mergedContract.substring(0, section15Start) +
-              signatureSection +
-              mergedContract.substring(section15End);
+          if (section15Match) {
+            const section15Start = section15Match.index!;
+            
+            // Find the end by looking for the next ⸻ (section separator)
+            const nextSectionStart = mergedContract.indexOf('⸻', section15Start + 50);
+            
+            if (nextSectionStart !== -1) {
+              mergedContract = 
+                mergedContract.substring(0, section15Start) +
+                signatureSection +
+                '\n\n' +
+                mergedContract.substring(nextSectionStart);
+            } else {
+              // If no next section found, replace until end
+              mergedContract = 
+                mergedContract.substring(0, section15Start) +
+                signatureSection;
+            }
           }
         }
 
+        // Clean up any remaining empty signature divs (from contract generation)
+        mergedContract = mergedContract
+          .replace(/<div style="display: inline-block; min-width: 200px; text-align: center; margin: 10px 0; min-height: 80px;"><div style="height: 60px; margin-bottom: 10px;"><\/div><\/div>/g, '')
+          .replace(/<div style="display: inline-block; min-width: 200px; text-align: center; margin: 10px 0;"><div style="height: 60px; margin-bottom: 10px;"><\/div><\/div>/g, '');
+        
         // Format the contract text with indentation
         mergedContract = formatContractText(mergedContract);
         
@@ -403,6 +553,30 @@ ${signatureLines}`;
           .replace(/<strong>-<\/strong>/g, '') // Remove any strong tags with just a dash
           .replace(/<div>\s*<strong>-<\/strong>\s*<\/div>/g, '') // Remove div with strong dash
           .replace(/<div>\s*-\s*<\/div>/g, ''); // Remove any div with just a dash
+        
+        // Debug: Log final contract before setting
+        console.log('Final contract before setting:', mergedContract);
+        const finalSection5Content = mergedContract.match(/5\. פיצויים[\s\S]*?⸻/);
+        console.log('Final Section 5 content:', finalSection5Content);
+        
+        // Safety check: If section 5 is missing, add it back
+        if (!mergedContract.includes('5. פיצויים, ריבית והצמדה')) {
+          console.warn('Section 5 missing! Adding it back...');
+          const section5 = `
+5. פיצויים, ריבית והצמדה
+
+5.1 בגין איחור בתשלום מכל סוג שהוא, ישלם השוכר ריבית פיגורים בסך <strong>400 ש"ח</strong> ליום.
+5.2 בגין הפרת התחייבויות כספיות, יישום הסכם זה יהיה בהתאם להוראות הדין.
+5.3 בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך 2% מדמי השכירות היומיים עבור כל יום איחור.
+
+⸻`;
+          
+          // Insert section 5 before section 6
+          const section6Index = mergedContract.indexOf('6. תחזוקת המושכר ותיקונים');
+          if (section6Index !== -1) {
+            mergedContract = mergedContract.slice(0, section6Index) + section5 + '\n\n' + mergedContract.slice(section6Index);
+          }
+        }
         
         setContract(mergedContract);
       })
@@ -492,77 +666,315 @@ ${signatureLines}`;
               })() : 'תצוגה מקדימה של החוזה'}
             </div>
             <div className="flex gap-2">
-              <button
-                className="bg-[#38E18E] text-[#281D57] font-bold px-4 py-1.5 rounded-lg shadow hover:bg-[#2bc77a] transition-colors flex items-center justify-center min-w-[100px] text-sm"
-                onClick={() => setShowSignatureModal(true)}
-              >
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16l-4-4m0 0l4-4m-4 4h18" />
-                </svg>
-                שלח לחתימה דיגיטלית
-              </button>
-              <button
-                className="bg-[#38E18E] text-[#281D57] font-bold px-4 py-1.5 rounded-lg shadow hover:bg-[#2bc77a] transition-colors flex items-center justify-center min-w-[100px] text-sm"
-                disabled={downloading}
-                onClick={async () => {
-                  setDownloading(true);
-                  try {
-                    const contractNode = document.querySelector('.contract-preview');
-                    if (!contractNode) {
-                      alert('לא נמצא תוכן החוזה להורדה');
-                      return;
-                    }
-                    let css = '';
-                    for (const sheet of Array.from(document.styleSheets)) {
-                      try {
-                        css += Array.from(sheet.cssRules).map(rule => rule.cssText).join(' ');
-                      } catch (e) { /* ignore CORS issues */ }
-                    }
-                    const html = contractNode.outerHTML;
-                    const response = await fetch('/api/generate-pdf', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ html, css }),
-                    });
-                    if (response.ok) {
-                      const blob = await response.blob();
-                      const url = window.URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = 'contract.pdf';
-                      document.body.appendChild(a);
-                      a.click();
-                      a.remove();
-                      window.URL.revokeObjectURL(url);
-                    } else {
-                      alert('PDF generation failed');
-                    }
-                  } finally {
-                    setDownloading(false);
-                  }
-                }}
-              >
-                {downloading ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
-                    מעבד PDF...
-                  </span>
-                ) : (
-                  'הורד PDF'
+              {/* Main Dropdown Button */}
+              <div className="relative" ref={dropdownRef}>
+                <div className="bg-[#38E18E] text-[#281D57] font-bold px-4 py-2 rounded-lg shadow hover:bg-[#2bc77a] transition-colors flex items-center justify-center min-w-[180px] text-sm contract-dropdown-button">
+                  <button
+                    onClick={() => setShowSignatureModal(true)}
+                    className="flex-1 text-right"
+                    style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                  >
+                    {(() => {
+                      const allSigned = signers.length > 0 && signers.every(signer => signer.status === 'signed');
+                      const hasSignedSignatures = signers.some(signer => signer.status === 'signed');
+                      
+                      if (allSigned) {
+                        return 'החוזה חתום - צפה בפעולות';
+                      } else if (hasSignedSignatures) {
+                        return 'חתימות בתהליך - נהל';
+                      } else {
+                        return 'שלח לחתימה דיגיטלית';
+                      }
+                    })()}
+                  </button>
+                  <div className="w-px h-4 bg-[#281D57] opacity-30 mx-2"></div>
+                  <button
+                    onClick={() => setShowDropdown(!showDropdown)}
+                    className="flex items-center justify-center"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+                
+                {/* Dropdown Menu */}
+                {showDropdown && (
+                  <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 min-w-[200px] z-50 contract-dropdown-menu">
+                    <button
+                      className="w-full px-4 py-3 text-right hover:bg-gray-50 flex items-center justify-between text-sm font-medium text-[#281D57] transition-colors contract-dropdown-item"
+                      onClick={async () => {
+                        setShowDropdown(false);
+                        setDownloading(true);
+                        try {
+                          const allSigned = signers.length > 0 && signers.every(signer => signer.status === 'signed');
+                          
+                          if (allSigned && contractId) {
+                            // For fully signed contracts, process the contract with signatures (same as SignatureInvitationModal)
+                            const contractNode = document.querySelector('.contract-preview');
+                            if (!contractNode) {
+                              alert('לא נמצא תוכן החוזה להורדה');
+                              return;
+                            }
+
+                            // Get all CSS styles
+                            let css = '';
+                            for (const sheet of Array.from(document.styleSheets)) {
+                              try {
+                                css += Array.from(sheet.cssRules).map(rule => rule.cssText).join(' ');
+                              } catch (e) { /* ignore CORS issues */ }
+                            }
+
+                            // Get the HTML and process signatures (same logic as SignatureInvitationModal)
+                            let html = contractNode.outerHTML;
+                            
+                            // Add page break for section 16
+                            html = html.replace(
+                              /(16\.\s*נספח: כתב ערבות)/g,
+                              '<div style="page-break-before: always;"></div>$1'
+                            );
+
+                            // Replace signature placeholders with actual signatures
+                            const signedSigners = signers.filter(signer => signer.status === 'signed' && signer.signatureImage);
+                            
+                            // Replace landlord signature
+                            const landlordSigner = signedSigners.find(signer => signer.signerType === 'landlord');
+                            if (landlordSigner && landlordSigner.signatureImage) {
+                              html = html.replace(
+                                /<span class="signature-placeholder">המשכיר<\/span>/g,
+                                `<img src="${landlordSigner.signatureImage}" alt="חתימת המשכיר" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+                              );
+                            }
+
+                            // Replace tenant signatures
+                            const tenantSigners = signedSigners.filter(signer => signer.signerType === 'tenant');
+                            tenantSigners.forEach((tenantSigner, index) => {
+                              const placeholderText = tenantSigner.role === 'השוכר' ? 'השוכר' : `שוכר ${index + 1}`;
+                              const regex = new RegExp(`<span class="signature-placeholder">${placeholderText}<\/span>`, 'g');
+                              html = html.replace(
+                                regex,
+                                `<img src="${tenantSigner.signatureImage}" alt="חתימת ${tenantSigner.name}" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+                              );
+                            });
+
+                            // Replace guarantor signatures
+                            const guarantorSigners = signedSigners.filter(signer => signer.signerType === 'guarantor');
+                            guarantorSigners.forEach((guarantorSigner) => {
+                              const placeholderText = guarantorSigner.role;
+                              const regex = new RegExp(`<span class="signature-placeholder">${placeholderText}<\/span>`, 'g');
+                              html = html.replace(
+                                regex,
+                                `<img src="${guarantorSigner.signatureImage}" alt="חתימת ${guarantorSigner.name}" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+                              );
+                            });
+
+                            // Generate PDF with signatures
+                            const response = await fetch('/api/generate-pdf', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ html, css }),
+                            });
+                            
+                            if (response.ok) {
+                              const blob = await response.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = `signed_contract_${contractId}.pdf`;
+                              document.body.appendChild(a);
+                              a.click();
+                              a.remove();
+                              window.URL.revokeObjectURL(url);
+                              alert('החוזה החתום הורד בהצלחה!');
+                            } else {
+                              const errorText = await response.text();
+                              alert('שגיאה בהורדת החוזה החתום: ' + errorText);
+                            }
+                          } else {
+                            // Regular PDF generation for unsigned contracts
+                            const contractNode = document.querySelector('.contract-preview');
+                            if (!contractNode) {
+                              alert('לא נמצא תוכן החוזה להורדה');
+                              return;
+                            }
+                            let css = '';
+                            for (const sheet of Array.from(document.styleSheets)) {
+                              try {
+                                css += Array.from(sheet.cssRules).map(rule => rule.cssText).join(' ');
+                              } catch (e) { /* ignore CORS issues */ }
+                            }
+                            const html = contractNode.outerHTML;
+                            const response = await fetch('/api/generate-pdf', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ html, css }),
+                            });
+                            if (response.ok) {
+                              const blob = await response.blob();
+                              const url = window.URL.createObjectURL(blob);
+                              const a = document.createElement('a');
+                              a.href = url;
+                              a.download = 'contract.pdf';
+                              document.body.appendChild(a);
+                              a.click();
+                              a.remove();
+                              window.URL.revokeObjectURL(url);
+                            } else {
+                              alert('PDF generation failed');
+                            }
+                          }
+                        } finally {
+                          setDownloading(false);
+                        }
+                      }}
+                      disabled={downloading}
+                      style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                    >
+                      <span>{(() => {
+                        const allSigned = signers.length > 0 && signers.every(signer => signer.status === 'signed');
+                        return allSigned ? 'הורד חוזה חתום' : 'הורד PDF';
+                      })()}</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                      </svg>
+                    </button>
+                    
+                    <button
+                      className="w-full px-4 py-3 text-right hover:bg-gray-50 flex items-center justify-between text-sm font-medium text-[#281D57] transition-colors contract-dropdown-item"
+                      onClick={() => {
+                        setShowDropdown(false);
+                        setShowEmailModal(true);
+                      }}
+                      style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                    >
+                      <span>שלח חוזה במייל</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                    
+                    {/* Print button - only show if not all parties have signed */}
+                    {(() => {
+                      const allSigned = signers.length > 0 && signers.every(signer => signer.status === 'signed');
+                      
+                      // Hide the print button when all parties have signed
+                      if (allSigned) {
+                        console.log('Print button hidden - all parties have signed the contract');
+                        return null;
+                      }
+                      
+                      return (
+                        <button
+                          className="w-full px-4 py-3 text-right hover:bg-gray-50 flex items-center justify-between text-sm font-medium text-[#281D57] transition-colors contract-dropdown-item"
+                          onClick={() => {
+                            setShowDropdown(false);
+                            // Trigger browser print dialog
+                            window.print();
+                          }}
+                          style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                        >
+                          <span>הדפס חוזה</span>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                          </svg>
+                        </button>
+                      );
+                    })()}
+                    
+                    {/* Edit contract button - only show if not all parties have signed */}
+                    {(() => {
+                      const hasSignedSignatures = signers.some(signer => signer.status === 'signed');
+                      const allSigned = signers.length > 0 && signers.every(signer => signer.status === 'signed');
+                      
+                      // Debug logging
+                      console.log('Contract Preview Edit Button Debug:', {
+                        loadingSignatures,
+                        hasSignedSignatures,
+                        allSigned,
+                        signersLength: signers.length,
+                        signers: signers.map(s => ({ status: s.status, name: s.name, type: s.signerType })),
+                        contractId,
+                        meta: !!meta
+                      });
+                      
+                      if (loadingSignatures) {
+                        return (
+                          <div className="w-full px-4 py-3 text-right flex items-center justify-between text-sm text-gray-400">
+                            <span>בודק חתימות...</span>
+                          </div>
+                        );
+                      }
+                      
+                      // Hide the edit button when all parties have signed
+                      if (allSigned) {
+                        console.log('Edit button hidden - all parties have signed the contract');
+                        return null; // Hide the edit button completely when all signatures are complete
+                      }
+                      
+                      return (
+                        <button
+                          className="w-full px-4 py-3 text-right hover:bg-gray-50 flex items-center justify-between text-sm font-medium text-[#281D57] transition-colors contract-dropdown-item"
+                          onClick={async () => {
+                            setShowDropdown(false);
+                            
+                            if (!contractId || !meta) {
+                              alert('שגיאה: לא נמצאו נתוני החוזה');
+                              return;
+                            }
+                            
+                            // Show warning if there are any signers (sent but not signed)
+                            const hasSentInvitations = signers.some(signer => signer.status === 'sent');
+                            if (hasSentInvitations) {
+                              const confirmed = confirm('אזהרה: קיימות הזמנות לחתימה שנשלחו. עריכת החוזה תבטל את ההזמנות הקיימות. האם ברצונך להמשיך?');
+                              if (!confirmed) return;
+                            }
+                            
+                            const remainingEdits = maxEdits - editCount;
+                            
+                            if (remainingEdits <= 0) {
+                              alert('לא ניתן לערוך חוזה זה יותר. החוזה נעול.');
+                              return;
+                            }
+                            
+                            const confirmMessage = `יש לך ${remainingEdits} עריכות שנותרו. האם אתה בטוח שברצונך לערוך?`;
+                            
+                            if (confirm(confirmMessage)) {
+                              try {
+                                // Fetch the full contract data to get the answers
+                                const contractDoc = await getDoc(doc(db, 'formAnswers', contractId));
+                                const contractData = contractDoc.data();
+                                
+                                if (!contractData) {
+                                  alert('שגיאה: לא נמצאו נתוני החוזה במערכת');
+                                  return;
+                                }
+                                
+                                // Set up localStorage for editing (same as dashboard)
+                                localStorage.setItem('editingFromDashboard', 'true');
+                                localStorage.setItem('contractMeta', JSON.stringify(contractData.answers || contractData));
+                                localStorage.setItem('currentContractId', contractId);
+                                
+                                // Navigate to editing page
+                                router.push('/');
+                              } catch (error) {
+                                console.error('Error setting up contract edit:', error);
+                                alert('שגיאה בהכנת החוזה לעריכה');
+                              }
+                            }
+                          }}
+                          style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                        >
+                          <span>ערוך חוזה ({maxEdits - editCount} שנותרו)</span>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                      );
+                    })()}
+
+                  </div>
                 )}
-              </button>
-              <button
-                className="bg-[#38E18E] text-[#281D57] font-bold px-4 py-1.5 rounded-lg shadow hover:bg-[#2bc77a] transition-colors text-sm"
-                onClick={() => setShowEmailModal(true)}
-              >
-                שלח במייל
-              </button>
-              <button
-                className="bg-[#38E18E] text-[#281D57] font-bold px-4 py-1.5 rounded-lg shadow hover:bg-[#2bc77a] transition-colors text-sm"
-                onClick={() => window.print()}
-              >
-                הדפס
-              </button>
+              </div>
             </div>
           </div>
         </header>
@@ -658,13 +1070,61 @@ ${signatureLines}`;
                     setSendResult(null);
                     const contractNode = document.querySelector('.contract-preview');
                     if (!contractNode) return;
+                    
                     let css = '';
                     for (const sheet of Array.from(document.styleSheets)) {
                       try {
                         css += Array.from(sheet.cssRules).map(rule => rule.cssText).join(' ');
                       } catch (e) {}
                     }
-                    const html = contractNode.outerHTML;
+                    
+                    let html = contractNode.outerHTML;
+                    
+                    // Check if all signatures are complete
+                    const allSigned = signers.length > 0 && signers.every(signer => signer.status === 'signed');
+                    
+                    if (allSigned) {
+                      // Process signatures the same way as download (for signed contracts)
+                      html = html.replace(
+                        /(16\.\s*נספח: כתב ערבות)/g,
+                        '<div style="page-break-before: always;"></div>$1'
+                      );
+
+                      // Replace signature placeholders with actual signatures
+                      const signedSigners = signers.filter(signer => signer.status === 'signed' && signer.signatureImage);
+                      
+                      // Replace landlord signature
+                      const landlordSigner = signedSigners.find(signer => signer.signerType === 'landlord');
+                      if (landlordSigner && landlordSigner.signatureImage) {
+                        html = html.replace(
+                          /<span class="signature-placeholder">המשכיר<\/span>/g,
+                          `<img src="${landlordSigner.signatureImage}" alt="חתימת המשכיר" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+                        );
+                      }
+
+                      // Replace tenant signatures
+                      const tenantSigners = signedSigners.filter(signer => signer.signerType === 'tenant');
+                      tenantSigners.forEach((tenantSigner, index) => {
+                        const placeholderText = tenantSigner.role === 'השוכר' ? 'השוכר' : `שוכר ${index + 1}`;
+                        const regex = new RegExp(`<span class="signature-placeholder">${placeholderText}<\/span>`, 'g');
+                        html = html.replace(
+                          regex,
+                          `<img src="${tenantSigner.signatureImage}" alt="חתימת ${tenantSigner.name}" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+                        );
+                      });
+
+                      // Replace guarantor signatures
+                      const guarantorSigners = signedSigners.filter(signer => signer.signerType === 'guarantor');
+                      guarantorSigners.forEach((guarantorSigner) => {
+                        const placeholderText = guarantorSigner.role;
+                        const regex = new RegExp(`<span class="signature-placeholder">${placeholderText}<\/span>`, 'g');
+                        html = html.replace(
+                          regex,
+                          `<img src="${guarantorSigner.signatureImage}" alt="חתימת ${guarantorSigner.name}" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+                        );
+                      });
+                    }
+                    
                     const response = await fetch('/api/send-pdf', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
@@ -672,12 +1132,14 @@ ${signatureLines}`;
                         html, 
                         css, 
                         email: emailToSend.trim(),
-                        propertyAddress: meta ? `${meta.street || ''} ${meta.buildingNumber || ''} ${meta.apartmentNumber || ''} ${meta.propertyCity || ''}`.trim() : ''
+                        propertyAddress: meta ? `${meta.street || ''} ${meta.buildingNumber || ''} ${meta.apartmentNumber || ''} ${meta.propertyCity || ''}`.trim() : '',
+                        isSigned: allSigned,
+                        contractId: contractId
                       }),
                     });
                     setSending(false);
                     if (response.ok) {
-                      setSendResult('החוזה נשלח למייל!');
+                      setSendResult(allSigned ? 'החוזה החתום נשלח למייל!' : 'החוזה נשלח למייל!');
                     } else {
                       setSendResult('שליחת המייל נכשלה');
                     }
@@ -726,63 +1188,19 @@ ${signatureLines}`;
           </div>
           <div className="contract-date-row text-center text-base mb-3"
             style={{ fontFamily: 'Frank Ruhl Libre, Noto Sans Hebrew, Arial, sans-serif', fontWeight: 400, fontSize: '1.05rem', color: '#111', marginBottom: 12, marginTop: 0, letterSpacing: '0.01em', lineHeight: 1.2, direction: 'rtl' }}>
-            שנעשה ונחתם ב{meta?.includeAgreementDetails ? (meta?.agreementCity || '_______') : '_______'}, בתאריך {meta?.includeAgreementDetails ? formatDate(meta?.agreementDate) : '_______'}.
+            חוזה זה נחתם באמצעים דיגיטליים בהתאם לחוק חתימה אלקטרונית, התשס"א–2001.
           </div>
           <div style={{ lineHeight: 1.4 }}>
             {contract.split('\n').map((line, index) => {
+              // Debug section 5 lines specifically
+              if (line.includes('פיצויים') || line.includes('5.1') || line.includes('5.2') || line.includes('5.3')) {
+                console.log(`Section 5 line ${index}:`, line);
+              }
+              
               // Skip empty lines, separator lines, and any remaining conditional block artifacts
               if (!line.trim() || line.trim() === '⸻' || line.trim() === '-' || line.trim().startsWith('{{#if') || line.trim().startsWith('{{/if') || line.includes('<div><strong>-</strong></div>') || line.includes('<strong>-</strong>') || line.trim() === '<div><strong>-</strong></div>') return null;
 
-              // Special handling for 5.1 and 5.2
-              if (line.trim().startsWith('5.1')) {
-                let bullet = '-';
-                if (meta) {
-                  switch (meta.lateInterestType) {
-                    case 'לא לגבות ריבית בכלל':
-                      bullet = 'בגין איחור בתשלום מכל סוג שהוא, לא תגבה ריבית פיגורים.';
-                      break;
-                    case '0.03% ליום (סטנדרטי)':
-                      bullet = 'בגין איחור בתשלום מכל סוג שהוא, ישלם השוכר ריבית פיגורים בשיעור 0.03% ליום.';
-                      break;
-                    case 'סכום קבוע':
-                      bullet = `בגין איחור בתשלום מכל סוג שהוא, ישלם השוכר ריבית פיגורים בסך ${meta.lateInterestFixedAmount || '-'} ש"ח ליום.`;
-                      break;
-                    default:
-                      bullet = '-';
-                  }
-                }
-                return (
-                  <div key={index}>
-                    5.1 {bullet}
-                  </div>
-                );
-              }
-              if (line.trim().startsWith('5.2')) {
-                let bullet = '-';
-                if (meta) {
-                  switch (meta.evacuationPenaltyType) {
-                    case 'לא לגבות דמי שימוש בכלל':
-                      bullet = 'בגין איחור בפינוי המושכר, לא ייגבו דמי שימוש.';
-                      break;
-                    case 'לגבות 2% מדמי השכירות היומיים':
-                      bullet = 'בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך 2% מדמי השכירות היומיים עבור כל יום איחור.';
-                      break;
-                    case 'לגבות 5% מדמי השכירות היומיים':
-                      bullet = 'בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך 5% מדמי השכירות היומיים עבור כל יום איחור.';
-                      break;
-                    case 'לגבות סכום קבוע ליום':
-                      bullet = `בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך ${meta.evacuationPenaltyFixedAmount || '-'} ש"ח ליום עבור כל יום איחור.`;
-                      break;
-                    default:
-                      bullet = '-';
-                  }
-                }
-                return (
-                  <div key={index}>
-                    5.2 {bullet}
-                  </div>
-                );
-              }
+              // Section 5.1 and 5.3 are now handled correctly by contractMerge function
 
               // Check if the line starts with a number pattern (main sections or subsections)
               const isMainSection = /^\d+\.(?!\d)/.test(line.trim());

@@ -2,6 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { SignatureStatus } from '@/types/signature';
 import SignatureCanvas from './SignatureCanvas';
+import contractMerge from '@/utils/contractMerge';
+import dynamic from 'next/dynamic';
+
+const Confetti = dynamic(() => import('react-confetti'), { ssr: false });
 
 interface SignatureInvitationModalProps {
   isOpen: boolean;
@@ -27,6 +31,8 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
   const [signature, setSignature] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [signing, setSigning] = useState(false);
+  const [infoExpanded, setInfoExpanded] = useState(false);
+
 
   // Initialize signers from contract data (fallback)
   const initializeSignersFromContractData = () => {
@@ -41,47 +47,59 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
 
     // Add landlord - check both array and direct properties
     if (contractData.landlords && contractData.landlords.length > 0) {
-      contractData.landlords.forEach((landlord: any) => {
+      contractData.landlords.forEach((landlord: any, index: number) => {
+        // Generate signerId using same logic as status API
+        const signerId = landlord.landlordId || `landlord-${index}-${landlord.landlordName || 'unknown'}`;
+        
         initialSigners.push({
           role: 'המשכיר',
           name: landlord.landlordName || '',
           status: 'not_sent',
           email: landlord.landlordEmail || '',
           signerType: 'landlord',
-          signerId: landlord.landlordId || '',
+          signerId: signerId,
         });
       });
     } else if (contractData.landlordName) {
+      // Generate signerId using same logic as status API
+      const signerId = contractData.landlordId || `landlord-single-${contractData.landlordName}`;
+      
       initialSigners.push({
         role: 'המשכיר',
         name: contractData.landlordName,
         status: 'not_sent',
         email: contractData.landlordEmail || '',
         signerType: 'landlord',
-        signerId: contractData.landlordId || '',
+        signerId: signerId,
       });
     }
 
     // Add tenants - check both array and direct properties
     if (contractData.tenants && contractData.tenants.length > 0) {
-      contractData.tenants.forEach((tenant: any) => {
+      contractData.tenants.forEach((tenant: any, index: number) => {
+        // Generate signerId using same logic as status API
+        const signerId = tenant.tenantIdNumber || `tenant-${index}-${tenant.tenantName || 'unknown'}`;
+        
         initialSigners.push({
-          role: 'השוכר',
+          role: contractData.tenants.length === 1 ? 'השוכר' : `שוכר ${index + 1}`,
           name: tenant.tenantName || '',
           status: 'not_sent',
           email: tenant.tenantEmail || '',
           signerType: 'tenant',
-          signerId: tenant.tenantIdNumber || '',
+          signerId: signerId,
         });
       });
     } else if (contractData.tenantName) {
+      // Generate signerId using same logic as status API
+      const signerId = contractData.tenantIdNumber || `tenant-single-${contractData.tenantName}`;
+      
       initialSigners.push({
         role: 'השוכר',
         name: contractData.tenantName,
         status: 'not_sent',
         email: contractData.tenantEmail || '',
         signerType: 'tenant',
-        signerId: contractData.tenantIdNumber || '',
+        signerId: signerId,
       });
     }
 
@@ -93,37 +111,28 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
         const guarantorEmail = contractData[`guarantor${i}Email`];
         
         if (guarantorName) {
+          // Generate signerId using same logic as status API
+          const signerId = guarantorId || `guarantor-${i}-${guarantorName}`;
+          
           initialSigners.push({
             role: i === 1 ? 'ערב ראשון' : 'ערב שני',
             name: guarantorName,
             status: 'not_sent',
             email: guarantorEmail || '',
             signerType: 'guarantor',
-            signerId: guarantorId || '',
+            signerId: signerId,
           });
         }
       }
     }
 
-    // Debug: Log what we found
-    console.log('Landlords found:', contractData.landlords);
-    console.log('Tenants found:', contractData.tenants);
-    console.log('Guarantors count:', contractData.guarantorsCount);
-    console.log('Guarantor1Name:', contractData.guarantor1Name);
-    console.log('Guarantor2Name:', contractData.guarantor2Name);
-    console.log('LandlordName:', contractData.landlordName);
-    console.log('TenantName:', contractData.tenantName);
-    console.log('LandlordId:', contractData.landlordId);
-    console.log('TenantIdNumber:', contractData.tenantIdNumber);
-
     console.log('Created signers:', initialSigners);
     
-    // If no signers found, create some test signers
     if (initialSigners.length === 0) {
       console.log('No signers found, creating test signers');
       initialSigners.push({
         role: 'המשכיר',
-        name: 'אור סבג',
+        name: 'משכיר',
         status: 'not_sent',
         email: '',
         signerType: 'landlord',
@@ -131,7 +140,7 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
       });
       initialSigners.push({
         role: 'השוכר',
-        name: 'קמילה שופן',
+        name: 'שוכר',
         status: 'not_sent',
         email: '',
         signerType: 'tenant',
@@ -147,7 +156,6 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     console.log('fetchSignatureStatuses called');
     
     if (!contractId) {
-      // Fallback to contract data if no contractId
       const fallbackSigners = initializeSignersFromContractData();
       if (fallbackSigners) {
         setSigners(fallbackSigners);
@@ -160,12 +168,17 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
       const response = await fetch(`/api/signature/status?contractId=${contractId}`);
       if (response.ok) {
         const data = await response.json();
-        console.log('Fetched signers:', data.signers);
-        console.log('First signer details:', data.signers[0]);
+        console.log('Fetched signers from API:', data.signers);
+        console.log('Signers with status:', data.signers.map((s: any) => ({ 
+          name: s.name, 
+          signerId: s.signerId, 
+          signerType: s.signerType, 
+          status: s.status,
+          email: s.email
+        })));
         setSigners(data.signers);
       } else {
         console.log('API failed, using fallback data');
-        // Fallback to contract data if API fails
         const fallbackSigners = initializeSignersFromContractData();
         if (fallbackSigners) {
           setSigners(fallbackSigners);
@@ -173,7 +186,6 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
       }
     } catch (error) {
       console.error('Error fetching signature statuses:', error);
-      // Fallback to contract data if API fails
       const fallbackSigners = initializeSignersFromContractData();
       if (fallbackSigners) {
         setSigners(fallbackSigners);
@@ -187,13 +199,11 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       console.log('Modal opened with:', { contractId, contractData });
-      console.log('Contract data type:', typeof contractData);
-      console.log('Contract data keys:', contractData ? Object.keys(contractData) : 'none');
       fetchSignatureStatuses();
     }
   }, [isOpen, contractId, contractData]);
 
-  // Auto-refresh when window gains focus (user returns to tab)
+  // Auto-refresh when window gains focus
   useEffect(() => {
     const handleFocus = () => {
       if (isOpen) {
@@ -212,21 +222,24 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     setSigners(updatedSigners);
   };
 
-  const saveEmailAddress = async (index: number) => {
+
+
+  const sendInvitation = async (index: number) => {
     const signer = signers[index];
     if (!signer.email) return;
 
     setLoading(true);
     try {
-      // Send invitation for this specific signer
       await onSendInvitations([signer]);
       
-      // Update local state
       const updatedSigners = [...signers];
       updatedSigners[index].status = 'sent';
       setSigners(updatedSigners);
+      
+      // Success message is handled by the parent component
     } catch (error) {
-      console.error('Error saving email address:', error);
+      console.error('Error sending invitation:', error);
+      alert('שגיאה בשליחת ההזמנה');
     } finally {
       setLoading(false);
     }
@@ -239,20 +252,28 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     setLoading(true);
     try {
       await onSendInvitations([signer]);
-      // Refresh statuses to get updated data
       await fetchSignatureStatuses();
+      
+      // Success message is handled by the parent component
     } catch (error) {
       console.error('Error resending invitation:', error);
+      alert('שגיאה בשליחת ההזמנה שוב');
     } finally {
       setLoading(false);
     }
   };
 
+
+
   const handleDirectSign = (index: number) => {
     const signer = signers[index];
     console.log('handleDirectSign called with index:', index);
-    console.log('Selected signer:', signer);
-    console.log('All signers:', signers);
+    console.log('Selected signer for direct sign:', {
+      name: signer.name,
+      signerId: signer.signerId,
+      signerType: signer.signerType,
+      role: signer.role
+    });
     setCurrentSigner(signer);
     setShowSignatureModal(true);
   };
@@ -260,25 +281,26 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
   const handleSignatureSubmit = async () => {
     if (!signature || !termsAccepted || !currentSigner) return;
 
+    if (!currentSigner.name || currentSigner.name.trim() === '') {
+      alert('שגיאה: שם החותם חסר. אנא מלא את פרטי החותם לפני החתימה.');
+      return;
+    }
+
     setSigning(true);
     try {
-      console.log('handleSignatureSubmit - currentSigner:', currentSigner);
-      console.log('handleSignatureSubmit - currentSigner.signerId:', currentSigner.signerId);
-      console.log('handleSignatureSubmit - currentSigner.name:', currentSigner.name);
-      
       const requestBody = {
         contractId,
         signerId: currentSigner.signerId,
-        signerName: currentSigner.name,
+        signerName: currentSigner.name.trim(),
         signerType: currentSigner.signerType,
+        signerRole: currentSigner.role,
         signature,
         ipAddress: 'direct-sign',
         userAgent: 'direct-sign'
       };
       
-      console.log('Sending direct signature request:', requestBody);
+      console.log('Sending direct sign request:', requestBody);
       
-      // Use the direct signature API
       const response = await fetch(`/api/signature/direct-sign`, {
         method: 'POST',
         headers: {
@@ -288,12 +310,19 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
       });
 
       if (response.ok) {
+        const result = await response.json();
+        console.log('Direct sign successful:', result);
+        
         setShowSignatureModal(false);
         setSignature('');
         setTermsAccepted(false);
         setCurrentSigner(null);
-        // Refresh the signers list
-        await fetchSignatureStatuses();
+        
+        // Add a small delay to ensure Firestore write is complete
+        setTimeout(async () => {
+          console.log('Refreshing signature statuses after direct sign...');
+          await fetchSignatureStatuses();
+        }, 1000);
       } else {
         const errorData = await response.json();
         console.error('Error saving signature:', errorData);
@@ -307,101 +336,506 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
   };
 
   const sendAllInvitations = async () => {
-    const signersWithEmails = signers.filter(signer => signer.email && signer.status === 'not_sent' && signer.signerType !== 'landlord');
-    if (signersWithEmails.length === 0) return;
+    const signersWithEmails = signers.filter(signer => 
+      signer.email && 
+      signer.email !== 'direct-sign@greenlease.me' && 
+      signer.status === 'not_sent' && 
+      signer.signerType !== 'landlord'
+    );
+    if (signersWithEmails.length === 0) {
+      alert('לא נמצאו חותמים עם כתובות מייל מוכנות לשליחה');
+      return;
+    }
 
     setSending(true);
     try {
       await onSendInvitations(signersWithEmails);
-      // Refresh statuses to get updated data
+      
+      // Update status of sent signers
+      const updatedSigners = [...signers];
+      signersWithEmails.forEach(signer => {
+        const index = updatedSigners.findIndex(s => s.signerId === signer.signerId);
+        if (index !== -1) {
+          updatedSigners[index].status = 'sent';
+        }
+      });
+      setSigners(updatedSigners);
+      
+      // Success message is handled by the parent component
       await fetchSignatureStatuses();
     } catch (error) {
       console.error('Error sending invitations:', error);
+      alert('שגיאה בשליחת ההזמנות');
     } finally {
       setSending(false);
     }
   };
 
-  const distributeSignedContract = async () => {
+  const sendSignedContractByEmail = async () => {
     setSending(true);
     try {
-      const response = await fetch(`/api/signature/distribute-contract`, {
+      // Get the contract HTML and CSS (same approach as send-pdf)
+      const contractNode = document.querySelector('.contract-preview');
+      if (!contractNode) {
+        alert('לא נמצא תוכן החוזה לשליחה');
+        return;
+      }
+
+      // Get all CSS styles
+      let css = '';
+      for (const sheet of Array.from(document.styleSheets)) {
+        try {
+          css += Array.from(sheet.cssRules).map(rule => rule.cssText).join(' ');
+        } catch (e) { /* ignore CORS issues */ }
+      }
+
+      // Get the HTML and process signatures (same as downloadSignedContract)
+      let html = contractNode.outerHTML;
+      
+      // Add page break for section 16 (like in print version)
+      html = html.replace(
+        /(16\.\s*נספח: כתב ערבות)/g,
+        '<div style="page-break-before: always;"></div>$1'
+      );
+
+      // Check if we need to manually generate the signature section for multiple tenants
+      const allTenantSigners = signers.filter(signer => signer.signerType === 'tenant');
+      const hasMultipleTenants = allTenantSigners.length > 1;
+      
+      if (hasMultipleTenants) {
+        console.log('Multiple tenants detected, manually generating signature section');
+        
+        // Get contract data from localStorage
+        const metaStr = localStorage.getItem('contractMeta');
+        if (metaStr) {
+          const rawData = JSON.parse(metaStr);
+          
+          // Generate signature section for multiple tenants
+          const signatureLines = allTenantSigners.map((tenantSigner, idx) => {
+            const tenantData = rawData.tenants && rawData.tenants[idx] ? rawData.tenants[idx] : {};
+            const name = tenantData.tenantName || tenantSigner.name || '-';
+            const id = tenantData.tenantIdNumber || tenantSigner.signerId || '-';
+            return `
+<div class="signature-block">
+<strong>שוכר ${idx + 1}</strong>: <span class="signature-placeholder">שוכר ${idx + 1}</span>
+שם: <strong>${name}</strong> | ת"ז: <strong>${id}</strong>
+</div>`;
+          }).join('\n');
+
+          // Add guarantor signature lines if they exist
+          let guarantorSignatureLines = '';
+          if (rawData.guarantorsCount && rawData.guarantorsCount > 0) {
+            for (let i = 1; i <= rawData.guarantorsCount; i++) {
+              const guarantorName = rawData[`guarantor${i}Name`];
+              const guarantorId = rawData[`guarantor${i}Id`];
+              
+              if (guarantorName) {
+                const guarantorRole = i === 1 ? 'ערב ראשון' : 'ערב שני';
+                guarantorSignatureLines += `
+<div class="signature-block">
+<strong>${guarantorRole}</strong>: <span class="signature-placeholder">${guarantorRole}</span>
+שם: <strong>${guarantorName}</strong> | ת"ז: <strong>${guarantorId}</strong>
+</div>`;
+              }
+            }
+          }
+
+          const signatureSection = `15. חתימות
+
+<div class="signature-header">ולראיה באו הצדדים על החתום</div>
+
+<div class="signature-block">
+<strong>המשכיר</strong>: <span class="signature-placeholder">המשכיר</span>
+שם: <strong>${rawData.landlordName || rawData.landlords?.[0]?.landlordName || '-'}</strong> | ת"ז: <strong>${rawData.landlordId || rawData.landlords?.[0]?.landlordId || '-'}</strong>
+</div>
+
+${signatureLines}${guarantorSignatureLines}`;
+
+          // Replace the entire signature section
+          const section15Start = html.indexOf('15. חתימות');
+          const section15End = html.indexOf('⸻\n\n16.');
+          
+          if (section15Start !== -1 && section15End !== -1) {
+            html = 
+              html.substring(0, section15Start) +
+              signatureSection +
+              html.substring(section15End);
+            console.log('Signature section replaced for multiple tenants');
+          }
+        }
+      }
+      
+      // Replace signature placeholders with actual signatures
+      const signedSigners = signers.filter(signer => signer.status === 'signed' && signer.signatureImage);
+      
+      // Replace landlord signature
+      const landlordSigner = signedSigners.find(signer => signer.signerType === 'landlord');
+      if (landlordSigner && landlordSigner.signatureImage) {
+        if (html.includes('<span class="signature-placeholder">המשכיר</span>')) {
+          html = html.replace(
+            /<span class="signature-placeholder">המשכיר<\/span>/g,
+            `<img src="${landlordSigner.signatureImage}" alt="חתימת המשכיר" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+          );
+        } else {
+          // For multiple tenants, replace the empty div in the landlord signature section
+          const landlordSignatureReplaced = html.replace(
+            /<div style="display: inline-block; min-width: 200px; text-align: center; margin: 10px 0; min-height: 80px;">\s*<div style="height: 60px; margin-bottom: 10px;"><\/div>\s*<\/div>/g,
+            `<img src="${landlordSigner.signatureImage}" alt="חתימת המשכיר" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+          );
+          
+          if (landlordSignatureReplaced !== html) {
+            html = landlordSignatureReplaced;
+            console.log('Landlord signature replaced successfully');
+          }
+        }
+      }
+
+      // Replace tenant signatures
+      const tenantSigners = signedSigners.filter(signer => signer.signerType === 'tenant');
+      
+      tenantSigners.forEach((tenantSigner, index) => {
+        const placeholderText = tenantSigner.role === 'השוכר' ? 'השוכר' : `שוכר ${index + 1}`;
+        const regex = new RegExp(`<span class="signature-placeholder">${placeholderText}<\/span>`, 'g');
+        html = html.replace(
+          regex,
+          `<img src="${tenantSigner.signatureImage}" alt="חתימת ${tenantSigner.name}" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+        );
+      });
+
+      // Replace guarantor signatures
+      const guarantorSigners = signedSigners.filter(signer => signer.signerType === 'guarantor');
+      guarantorSigners.forEach((guarantorSigner) => {
+        const placeholderText = guarantorSigner.role;
+        const regex = new RegExp(`<span class="signature-placeholder">${placeholderText}<\/span>`, 'g');
+        html = html.replace(
+          regex,
+          `<img src="${guarantorSigner.signatureImage}" alt="חתימת ${guarantorSigner.name}" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+        );
+      });
+
+      console.log('Signatures processed. Final HTML contains signature images:', html.includes('signature-image'));
+
+      console.log('Sending signed contract request with:', {
+        contractId,
+        signers: signers.map(signer => ({
+          email: signer.email,
+          name: signer.name,
+          role: signer.role
+        })),
+        hasHtml: !!html,
+        hasCss: !!css
+      });
+
+      const response = await fetch('/api/signature/distribute-contract', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           contractId,
-          signers: signers.filter(signer => signer.email && signer.email !== 'direct-sign@greenlease.me')
-        })
+          signers: signers.map(signer => ({
+            email: signer.email,
+            name: signer.name,
+            role: signer.role
+          })),
+          html,
+          css,
+          propertyAddress: getPropertyAddress()
+        }),
       });
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
 
       if (response.ok) {
         const result = await response.json();
-        alert(`החוזה החתום נשלח בהצלחה ל-${result.sentCount} צדדים!`);
-        setShowSignatureModal(false);
+        alert(`החוזה החתום נשלח בהצלחה ל-${result.sentCount} נמענים!`);
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to distribute contract');
+        let errorMessage = 'שגיאה בשליחת החוזה';
+        let errorDetails = null;
+        try {
+          const errorData = await response.json();
+          console.error('Server error response:', errorData);
+          errorMessage = errorData.details || errorData.error || errorMessage;
+          errorDetails = errorData;
+        } catch (e) {
+          // If response is not JSON, get text
+          console.error('Could not parse error response as JSON:', e);
+          errorMessage = 'שגיאת שרת - לא ניתן לקרוא את תשובת השרת';
+        }
+        
+        // Log full error details for debugging
+        console.error('Full error details:', {
+          errorMessage,
+          errorData: errorDetails
+        });
+        
+        // Log the error data in a more readable format
+        if (errorDetails) {
+          console.error('Error message:', errorDetails.error);
+          console.error('Error details:', errorDetails.details);
+          if (errorDetails.stack) {
+            console.error('Error stack:', errorDetails.stack);
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('Error distributing contract:', error);
-      alert('שגיאה בשליחת החוזה החתום: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error('Error sending signed contract:', error);
+      let errorMessage = 'שגיאה בשליחת החוזה החתום';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('fetch failed') || error.message.includes('Failed to fetch')) {
+          errorMessage = 'שגיאת חיבור - נא לוודא שהשרת פועל ולנסות שוב';
+        } else {
+          errorMessage += ': ' + error.message;
+        }
+      }
+      
+      alert(errorMessage);
     } finally {
       setSending(false);
     }
   };
+
+
 
   const downloadSignedContract = async () => {
     setSending(true);
     try {
-      console.log('Sending download request with:', { contractId, signers: signers.filter(signer => signer.status === 'signed') });
-      console.log('Contract ID being used:', contractId);
-      console.log('Signed signers count:', signers.filter(signer => signer.status === 'signed').length);
-      
-      const response = await fetch(`/api/signature/download-contract`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contractId,
-          signers: signers.filter(signer => signer.status === 'signed')
-        })
+      // Use the signed contract download API for better performance and consistency
+      const downloadResponse = await fetch(`/api/signature/download-contract?contractId=${contractId}`, {
+        method: 'GET'
       });
-
-      console.log('Download response status:', response.status);
-      console.log('Download response headers:', Object.fromEntries(response.headers.entries()));
-
-      if (response.ok) {
-        const blob = await response.blob();
-        console.log('Download blob size:', blob.size);
+      
+      if (downloadResponse.ok) {
+        const blob = await downloadResponse.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
+        a.download = `signed_contract_${contractId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        alert('החוזה החתום הורד בהצלחה!');
+        return;
+      }
+      
+      // Fallback to manual processing if API fails
+      console.log('API failed, falling back to manual processing');
+      
+      // Get the contract preview element (same as contract preview page)
+      const contractNode = document.querySelector('.contract-preview');
+      if (!contractNode) {
+        alert('לא נמצא תוכן החוזה להורדה');
+        return;
+      }
+
+      // Get all CSS styles (same as contract preview page)
+      let css = '';
+      for (const sheet of Array.from(document.styleSheets)) {
+        try {
+          css += Array.from(sheet.cssRules).map(rule => rule.cssText).join(' ');
+        } catch (e) { /* ignore CORS issues */ }
+      }
+
+      // Get the HTML (same as contract preview page)
+      let html = contractNode.outerHTML;
+      
+      // Add page break for section 16 (like in print version)
+      html = html.replace(
+        /(16\.\s*נספח: כתב ערבות)/g,
+        '<div style="page-break-before: always;"></div>$1'
+      );
+
+      // Check if we need to manually generate the signature section for multiple tenants
+      const allTenantSigners = signers.filter(signer => signer.signerType === 'tenant');
+      const hasMultipleTenants = allTenantSigners.length > 1;
+      
+      if (hasMultipleTenants) {
+        console.log('Multiple tenants detected, manually generating signature section');
         
-        // Check content type to determine file extension
-        const contentType = response.headers.get('content-type');
-        const isHtml = contentType && contentType.includes('text/html');
-        const fileExtension = isHtml ? 'html' : 'pdf';
-        const fileName = `contract_${contractId}.${fileExtension}`;
+        // Get contract data from localStorage
+        const metaStr = localStorage.getItem('contractMeta');
+        if (metaStr) {
+          const rawData = JSON.parse(metaStr);
+          
+          // Generate signature section for multiple tenants
+          const signatureLines = allTenantSigners.map((tenantSigner, idx) => {
+            const tenantData = rawData.tenants && rawData.tenants[idx] ? rawData.tenants[idx] : {};
+            const name = tenantData.tenantName || tenantSigner.name || '-';
+            const id = tenantData.tenantIdNumber || tenantSigner.signerId || '-';
+            return `
+<div class="signature-block">
+<strong>שוכר ${idx + 1}</strong>: <span class="signature-placeholder">שוכר ${idx + 1}</span>
+שם: <strong>${name}</strong> | ת"ז: <strong>${id}</strong>
+</div>`;
+          }).join('\n');
+
+          // Add guarantor signature lines if they exist
+          let guarantorSignatureLines = '';
+          if (rawData.guarantorsCount && rawData.guarantorsCount > 0) {
+            for (let i = 1; i <= rawData.guarantorsCount; i++) {
+              const guarantorName = rawData[`guarantor${i}Name`];
+              const guarantorId = rawData[`guarantor${i}Id`];
+              
+              if (guarantorName) {
+                const guarantorRole = i === 1 ? 'ערב ראשון' : 'ערב שני';
+                guarantorSignatureLines += `
+<div class="signature-block">
+<strong>${guarantorRole}</strong>: <span class="signature-placeholder">${guarantorRole}</span>
+שם: <strong>${guarantorName}</strong> | ת"ז: <strong>${guarantorId}</strong>
+</div>`;
+              }
+            }
+          }
+
+          const signatureSection = `15. חתימות
+
+<div class="signature-header">ולראיה באו הצדדים על החתום</div>
+
+<div class="signature-block">
+<strong>המשכיר</strong>: <span class="signature-placeholder">המשכיר</span>
+שם: <strong>${rawData.landlordName || rawData.landlords?.[0]?.landlordName || '-'}</strong> | ת"ז: <strong>${rawData.landlordId || rawData.landlords?.[0]?.landlordId || '-'}</strong>
+</div>
+
+${signatureLines}${guarantorSignatureLines}`;
+
+          // Replace the entire signature section
+          const section15Start = html.indexOf('15. חתימות');
+          const section15End = html.indexOf('⸻\n\n16.');
+          
+          if (section15Start !== -1 && section15End !== -1) {
+            html = 
+              html.substring(0, section15Start) +
+              signatureSection +
+              html.substring(section15End);
+            console.log('Signature section replaced for multiple tenants');
+          }
+        }
+      }
+      
+      // Replace signature placeholders with actual signatures
+      const signedSigners = signers.filter(signer => signer.status === 'signed' && signer.signatureImage);
+      
+      // Debug: Check what signature placeholders exist in the HTML
+      console.log('HTML contains landlord placeholder:', html.includes('<span class="signature-placeholder">המשכיר</span>'));
+      console.log('HTML contains tenant placeholder:', html.includes('<span class="signature-placeholder">השוכר</span>'));
+      console.log('HTML contains signature placeholders:', html.includes('signature-placeholder'));
+      
+      // Find all signature placeholders in the HTML
+      const signaturePlaceholderMatches = html.match(/<span class="signature-placeholder">([^<]+)<\/span>/g);
+      console.log('All signature placeholders found:', signaturePlaceholderMatches);
+      
+      // Check for specific tenant placeholders
+      for (let i = 1; i <= 10; i++) {
+        const placeholder = `<span class="signature-placeholder">שוכר ${i}</span>`;
+        if (html.includes(placeholder)) {
+          console.log(`Found placeholder: ${placeholder}`);
+        }
+      }
+      
+      // Show a sample of the HTML around the signature section
+      const signatureSectionIndex = html.indexOf('15. חתימות');
+      if (signatureSectionIndex !== -1) {
+        const sampleStart = Math.max(0, signatureSectionIndex - 200);
+        const sampleEnd = Math.min(html.length, signatureSectionIndex + 1000);
+        console.log('HTML sample around signature section:', html.substring(sampleStart, sampleEnd));
+      }
+      
+      // Check if the signature section contains tenant names
+      console.log('HTML contains tenant names in signature section:', html.includes('שם: <strong>') && html.includes('ת"ז: <strong>'));
+      console.log('HTML contains signature blocks:', html.includes('signature-block'));
+      
+      // Replace landlord signature
+      const landlordSigner = signedSigners.find(signer => signer.signerType === 'landlord');
+      if (landlordSigner && landlordSigner.signatureImage) {
+        // For multiple tenants, the landlord signature section might not have a placeholder
+        // Let's try to replace the empty div with the signature
+        if (html.includes('<span class="signature-placeholder">המשכיר</span>')) {
+          html = html.replace(
+            /<span class="signature-placeholder">המשכיר<\/span>/g,
+            `<img src="${landlordSigner.signatureImage}" alt="חתימת המשכיר" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+          );
+        } else {
+          // For multiple tenants, replace the empty div in the landlord signature section
+          const landlordSignatureReplaced = html.replace(
+            /<div style="display: inline-block; min-width: 200px; text-align: center; margin: 10px 0; min-height: 80px;">\s*<div style="height: 60px; margin-bottom: 10px;"><\/div>\s*<\/div>/g,
+            `<img src="${landlordSigner.signatureImage}" alt="חתימת המשכיר" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+          );
+          
+          if (landlordSignatureReplaced === html) {
+            console.log('Landlord signature replacement failed - no empty div found');
+          } else {
+            html = landlordSignatureReplaced;
+            console.log('Landlord signature replaced successfully');
+          }
+        }
+      }
+
+      // Replace tenant signatures
+      const tenantSigners = signedSigners.filter(signer => signer.signerType === 'tenant');
+      console.log('Tenant signers to replace:', tenantSigners.map(s => ({ name: s.name, role: s.role, index: tenantSigners.indexOf(s) })));
+      
+      tenantSigners.forEach((tenantSigner, index) => {
+        // For multiple tenants, the placeholder is "שוכר 1", "שוכר 2", etc.
+        // For single tenant, the placeholder is "השוכר"
+        const placeholderText = tenantSigner.role === 'השוכר' ? 'השוכר' : `שוכר ${index + 1}`;
+        console.log(`Looking for tenant placeholder for ${tenantSigner.name}: "${placeholderText}"`);
+        console.log('HTML contains this placeholder:', html.includes(`<span class="signature-placeholder">${placeholderText}</span>`));
         
-        a.download = fileName;
+        const regex = new RegExp(`<span class="signature-placeholder">${placeholderText}<\/span>`, 'g');
+        const tenantSignatureReplaced = html.replace(
+          regex,
+          `<img src="${tenantSigner.signatureImage}" alt="חתימת ${tenantSigner.name}" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+        );
+        
+        if (tenantSignatureReplaced === html) {
+          console.log(`Tenant signature replacement failed for ${tenantSigner.name} - placeholder "${placeholderText}" not found`);
+        } else {
+          html = tenantSignatureReplaced;
+          console.log(`Tenant signature replaced successfully for ${tenantSigner.name}`);
+        }
+      });
+
+      // Replace guarantor signatures
+      const guarantorSigners = signedSigners.filter(signer => signer.signerType === 'guarantor');
+      guarantorSigners.forEach((guarantorSigner) => {
+        const placeholderText = guarantorSigner.role;
+        const regex = new RegExp(`<span class="signature-placeholder">${placeholderText}<\/span>`, 'g');
+        html = html.replace(
+          regex,
+          `<img src="${guarantorSigner.signatureImage}" alt="חתימת ${guarantorSigner.name}" class="signature-image" style="max-width: 200px; max-height: 80px; border: none; display: block; margin: 0 auto;" />`
+        );
+      });
+
+      // Debug: Check if signatures were replaced
+      console.log('Final HTML contains signature images:', html.includes('signature-image'));
+      console.log('Final HTML contains signature placeholders:', html.includes('signature-placeholder'));
+
+      // Use the exact same API as contract preview
+      const pdfResponse = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html, css }),
+      });
+
+      if (pdfResponse.ok) {
+        const blob = await pdfResponse.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `signed_contract_${contractId}.pdf`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        alert(`החוזה החתום הורד בהצלחה! (${fileExtension.toUpperCase()})`);
+        alert('החוזה החתום הורד בהצלחה!');
       } else {
-        const errorText = await response.text();
-        console.log('Download error response:', errorText);
-        let errorData;
-        try {
-          errorData = JSON.parse(errorText);
-        } catch {
-          errorData = { error: errorText };
-        }
-        throw new Error(errorData.error || `HTTP ${response.status}: ${errorText}`);
+        const errorText = await pdfResponse.text();
+        throw new Error(`PDF generation failed: ${errorText}`);
       }
     } catch (error) {
       console.error('Error downloading contract:', error);
@@ -410,10 +844,6 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
       setSending(false);
     }
   };
-
-  // Check if all signers have signed
-  const allSigned = signers.length > 0 && signers.every(signer => signer.status === 'signed');
-  const hasSignedSigners = signers.some(signer => signer.status === 'signed');
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -459,58 +889,77 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
     return parts.join(' ');
   };
 
+  // Check if all signers have signed
+  const allSigned = signers.length > 0 && signers.every(signer => signer.status === 'signed');
+  const hasSignedSigners = signers.some(signer => signer.status === 'signed');
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                  {/* Header */}
-          <div className="flex justify-between items-center p-6 border-b">
-            <h2 className="text-2xl font-bold text-[#281D57]" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-              חוזה השכירות מוכן לחתימה דיגיטלית
-            </h2>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={fetchSignatureStatuses}
-                disabled={refreshing}
-                className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 disabled:opacity-50 transition-colors"
-                style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
-              >
-                {refreshing ? 'מעדכן...' : 'רענן'}
-              </button>
-              <button
-                onClick={onClose}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-4 md:p-4 p-0">
+      <div className="bg-white rounded-lg md:rounded-lg rounded-none shadow-xl max-w-4xl w-full max-h-[95vh] md:max-h-[95vh] h-full md:h-auto overflow-y-auto">
+        {/* Confetti effect when all signatures are completed */}
+        {allSigned && typeof window !== 'undefined' && (
+          <Confetti
+            width={window.innerWidth}
+            height={window.innerHeight}
+            numberOfPieces={250}
+            recycle={false}
+          />
+        )}
+
+        {/* Header */}
+        <div className="flex justify-between items-center p-6 md:p-6 p-4 border-b">
+          <h2 className="md:text-2xl text-xl font-bold text-[#281D57]" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+            {allSigned ? 'כל החתימות התקבלו!' : 'חוזה השכירות מוכן לחתימה דיגיטלית'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
         {/* Content */}
-        <div className="p-6">
-          {/* Subtitle */}
-          <p className="text-gray-600 mb-6" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-            החוזה עבור {getPropertyAddress()} מוכן לחתימה והוזנו פרטי החותמים הבאים:
-          </p>
+        <div className="p-6 md:p-6 p-4">
+          {allSigned ? (
+            /* Completion state with illustration */
+            <div className="text-center mb-8">
+              <div className="flex justify-center items-center mb-6">
+                <img 
+                  src="/login-illustation.png" 
+                  alt="החוזה מוכן לשליחה" 
+                  style={{
+                    maxWidth: '300px',
+                    height: 'auto',
+                    borderRadius: '12px'
+                  }}
+                />
+              </div>
+              <p className="text-lg text-gray-800 mb-6 leading-relaxed" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                המסמך החתום מוכן לשליחה לכולם<br/>
+                החוזה עבור {getPropertyAddress()} מוכן לשליחה
+              </p>
+            </div>
+          ) : (
+            /* Normal state subtitle */
+            <p className="text-gray-600 mb-6" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+              החוזה עבור {getPropertyAddress()} מוכן לחתימה והוזנו פרטי החותמים הבאים:
+            </p>
+          )}
 
-          {/* Signers List - Redesigned to match the image */}
+          {/* Signers List */}
           <div className="mb-8 space-y-4">
             {signers.length === 0 && (
               <div className="text-center py-8 text-gray-500" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-                {refreshing ? 'טוען...' : (
-                  <div>
-                    <div>לא נמצאו חותמים</div>
-                    <div className="text-xs mt-2">Debug: contractId={contractId}</div>
-                    <div className="text-xs">contractData keys: {contractData ? Object.keys(contractData).join(', ') : 'none'}</div>
-                  </div>
-                )}
+                {refreshing ? 'טוען...' : 'לא נמצאו חותמים'}
               </div>
             )}
             {signers.map((signer, index) => (
-              <div key={index} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+              <div key={index} className="flex md:flex-row flex-col md:items-center items-start justify-between p-4 border border-gray-200 rounded-lg gap-4 md:gap-0">
                 {/* Role and Name (Right side) */}
                 <div className="flex-1 text-right">
                   <div className="font-medium text-gray-900" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
@@ -519,9 +968,8 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
                 </div>
 
                 {/* Email (Middle) */}
-                <div className="flex items-center gap-2 mx-4 min-w-[200px]">
+                <div className="flex items-center gap-2 md:mx-4 mx-0 md:min-w-[300px] min-w-0 w-full md:w-auto">
                   {signer.signerType === 'landlord' && signer.status === 'not_sent' ? (
-                    // Landlord can sign directly
                     <button
                       onClick={() => handleDirectSign(index)}
                       disabled={loading}
@@ -530,47 +978,52 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
                     >
                       חתום עכשיו
                     </button>
-                  ) : signer.status === 'not_sent' ? (
-                    // Other signers need email
+                  ) : signer.email === 'direct-sign@greenlease.me' ? (
+                    /* Direct sign indicator */
+                    <span className="text-sm text-gray-700 px-3 py-2 bg-gray-50 rounded" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                      חתם ישירות
+                    </span>
+                  ) : (
+                    /* Simple email input with send invite button */
                     <>
                       <input
                         type="email"
-                        value={signer.email}
+                        value={signer.email || ''}
                         onChange={(e) => updateSignerEmail(index, e.target.value)}
-                        placeholder="הזן מייל"
-                        className="px-3 py-2 border border-gray-300 rounded text-sm w-48"
+                        placeholder={allSigned ? "לא ניתן לערוך - הכל חתום" : "הזן מייל"}
+                        disabled={allSigned}
+                        className={`px-3 py-2 border border-gray-300 rounded text-sm md:w-48 w-full ${allSigned ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                         style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
                       />
-                      <button
-                        onClick={() => saveEmailAddress(index)}
-                        disabled={!signer.email || loading}
-                        className="px-4 py-2 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600 disabled:opacity-50 transition-colors"
-                        style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
-                      >
-                        הוסיפו כתובת מייל
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-sm text-gray-600 px-3 py-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-                        {signer.email && signer.email !== 'direct-sign@greenlease.me' ? signer.email : ''}
-                      </span>
-                      {(signer.status === 'sent' || signer.status === 'not_sent') && signer.signerType !== 'landlord' && (
-                        <button
-                          onClick={() => resendInvitation(index)}
-                          disabled={loading}
-                          className="px-3 py-1 bg-white border border-gray-300 text-gray-700 rounded text-sm hover:bg-gray-50 transition-colors"
-                          style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
-                        >
-                          שלח שוב
-                        </button>
+                      {!allSigned && signer.email && (
+                        <>
+                          {signer.status === 'not_sent' ? (
+                            <button
+                              onClick={() => sendInvitation(index)}
+                              disabled={loading}
+                              className="px-3 py-1 bg-[#38E18E] text-[#281D57] rounded text-sm hover:bg-[#2bc77a] transition-colors font-semibold"
+                              style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                            >
+                              שלח הזמנה
+                            </button>
+                          ) : signer.status === 'sent' && (
+                            <button
+                              onClick={() => resendInvitation(index)}
+                              disabled={loading}
+                              className="px-3 py-1 bg-orange-500 text-white rounded text-sm hover:bg-orange-600 transition-colors"
+                              style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+                            >
+                              שלח שוב
+                            </button>
+                          )}
+                        </>
                       )}
                     </>
                   )}
                 </div>
 
                 {/* Status (Left side) */}
-                <div className="flex items-center gap-2 min-w-[120px]">
+                <div className="flex items-center gap-2 md:min-w-[120px] min-w-0 md:justify-start justify-center">
                   {getStatusIcon(signer.status)}
                   <span className="text-sm font-medium" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
                     {getStatusText(signer.status)}
@@ -580,60 +1033,82 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
             ))}
           </div>
 
-          {/* Information Section */}
-          <div className="bg-gray-50 rounded-lg p-6 mb-6">
-            <h3 className="font-semibold mb-4" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-              מה יקרה שתשלח את החוזה לחתימה דיגיטלית?
-            </h3>
-            <ul className="space-y-2 text-sm text-gray-600">
-              <li className="flex items-start gap-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-                <span>•</span>
-                <span>כל חותם יקבל מייל אישי עם קישור ייחודי וקוד אימות חד-פעמי.</span>
-              </li>
-              <li className="flex items-start gap-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-                <span>•</span>
-                <span>תוכל לעקוב אחר סטטוס החתימות בזמן-אמת בלוח המעקב.</span>
-              </li>
-              <li className="flex items-start gap-2" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
-                <span>•</span>
-                <span>לאחר שכל הצדדים יחתמו, קובץ PDF חתום יישלח אוטומטית אליך ואליהם.</span>
-              </li>
-            </ul>
+          {/* Information Section - Collapsible - Hide when all signed */}
+          {!allSigned && (
+            <div className="bg-gray-50 rounded-lg p-6 mb-6">
+            <button
+              onClick={() => setInfoExpanded(!infoExpanded)}
+              className="flex items-center justify-between w-full text-left"
+            >
+              <h3 className="text-sm font-medium text-gray-700" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                מה יקרה שתשלח את החוזה לחתימה דיגיטלית?
+              </h3>
+              <svg
+                className={`w-5 h-5 text-gray-500 transition-transform ${infoExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {infoExpanded && (
+              <div className="mt-4">
+                <ol className="space-y-3 list-decimal list-inside">
+                  <li className="text-sm text-gray-700" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                    <span className="font-medium text-gray-900">שליחת הזמנות אישיות</span>
+                    <span className="block text-gray-600 mt-1">כל חותם יקבל מייל אישי עם קישור ייחודי מאובטח לחתימה דיגיטלית.</span>
+                  </li>
+                  
+                  <li className="text-sm text-gray-700" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                    <span className="font-medium text-gray-900">מעקב בזמן אמת</span>
+                    <span className="block text-gray-600 mt-1">תוכל לעקוב אחר סטטוס החתימות בזמן-אמת ולראות מי כבר חתם ומי עדיין ממתין.</span>
+                  </li>
+                  
+                  <li className="text-sm text-gray-700" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
+                    <span className="font-medium text-gray-900">חוזה סופי אוטומטי</span>
+                    <span className="block text-gray-600 mt-1">לאחר שכל הצדדים יחתמו, קובץ PDF סופי עם כל החתימות יהיה מוכן לשליחה אליך ואל כל החותמים.</span>
+                  </li>
+
+                </ol>
+              </div>
+            )}
           </div>
+          )}
 
           {/* Action Buttons */}
-          <div className="flex justify-center gap-4">
-            {allSigned ? (
-              // All signed - show distribute button
+          <div className="flex md:flex-row flex-col justify-center gap-4">
+            {!allSigned ? (
               <button
-                onClick={distributeSignedContract}
+                onClick={sendAllInvitations}
+                disabled={sending || signers.filter(s => s.email && s.email !== 'direct-sign@greenlease.me' && s.status === 'not_sent' && s.signerType !== 'landlord').length === 0}
+                className="px-8 py-3 bg-[#38E18E] text-[#281D57] rounded-lg font-semibold hover:bg-[#2bc77a] disabled:opacity-50 transition-colors"
+                style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
+              >
+                {sending ? 'שולח...' : 'שלח הזמנות לחתימה לכל החותמים'}
+              </button>
+            ) : (
+              /* Send signed contract by email button - show when all signed */
+              <button
+                onClick={sendSignedContractByEmail}
                 disabled={sending}
                 className="px-8 py-3 bg-[#38E18E] text-[#281D57] rounded-lg font-semibold hover:bg-[#2bc77a] disabled:opacity-50 transition-colors"
                 style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
               >
-                {sending ? 'שולח...' : 'שלח את החוזה החתום לכל הצדדים'}
-              </button>
-            ) : (
-              // Not all signed - show send invitations button
-              <button
-                onClick={sendAllInvitations}
-                disabled={sending || signers.filter(s => s.email && s.status === 'not_sent' && s.signerType !== 'landlord').length === 0}
-                className="px-8 py-3 bg-[#38E18E] text-[#281D57] rounded-lg font-semibold hover:bg-[#2bc77a] disabled:opacity-50 transition-colors"
-                style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
-              >
-                {sending ? 'שולח...' : 'שלח את החוזה לחתימה דיגיטלית'}
+                {sending ? 'שולח...' : 'שלח חוזה חתום במייל לכל הצדדים'}
               </button>
             )}
             
-            {/* Debug download button - show when there are signed signers */}
+            {/* Download signed PDF button - show when there are signed signers */}
             {hasSignedSigners && (
               <button
                 onClick={downloadSignedContract}
                 disabled={sending}
-                className="px-6 py-3 bg-blue-500 text-white rounded-lg font-semibold hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 disabled:opacity-50 transition-colors border border-gray-300"
                 style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}
               >
-                {sending ? 'מוריד...' : 'הורד חוזה חתום (דיבאג)'}
+                {sending ? 'מוריד...' : 'הורד PDF חתום'}
               </button>
             )}
           </div>
@@ -642,10 +1117,10 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
 
       {/* Signature Modal for Direct Signing */}
       {showSignatureModal && currentSigner && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[10000] p-4 md:p-4 p-0">
+          <div className="bg-white rounded-lg md:rounded-lg rounded-none shadow-xl max-w-2xl w-full max-h-[90vh] md:max-h-[90vh] h-full md:h-auto overflow-y-auto">
             {/* Header */}
-            <div className="flex justify-between items-center p-6 border-b">
+            <div className="flex justify-between items-center p-6 md:p-6 p-4 border-b">
               <h3 className="text-xl font-bold text-[#281D57]" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
                 חתימה על הסכם השכירות
               </h3>
@@ -660,7 +1135,7 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
             </div>
 
             {/* Content */}
-            <div className="p-6">
+            <div className="p-6 md:p-6 p-4">
               <div className="mb-6">
                 <p className="text-gray-600 mb-4" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
                   {currentSigner.role}: {currentSigner.name}
@@ -675,7 +1150,7 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
                     checked={termsAccepted}
                     onChange={(e) => setTermsAccepted(e.target.checked)}
                     className="mt-1"
-                    style={{ accentColor: '#8B5CF6' }}
+                    style={{ accentColor: '#38E18E' }}
                   />
                   <span className="text-sm text-gray-700" style={{ fontFamily: 'Noto Sans Hebrew, Arial, sans-serif' }}>
                     אני מאשר/ת כי עיינתי בחוזה, הבנתי את תנאיו ואני מסכים/ה להם. חתימתי האלקטרונית מחייבת אותי בהתאם לחוק חתימה אלקטרונית, תשס"א-2001.
@@ -689,12 +1164,12 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
                   onSignatureChange={setSignature} 
                   width={400} 
                   height={150}
-                  className="w-full"
+                  className="w-full max-w-full"
                 />
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-3 justify-end">
+              <div className="flex md:flex-row flex-col gap-3 md:justify-end justify-stretch">
                 <button
                   onClick={() => setShowSignatureModal(false)}
                   className="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
@@ -719,4 +1194,4 @@ const SignatureInvitationModal: React.FC<SignatureInvitationModalProps> = ({
   );
 };
 
-export default SignatureInvitationModal; 
+export default SignatureInvitationModal;

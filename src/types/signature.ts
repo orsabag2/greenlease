@@ -48,6 +48,7 @@ export interface SignatureStatus {
   signerType: 'landlord' | 'tenant' | 'guarantor';
   signerId: string;
   invitationId?: string;
+  signatureImage?: string | null;
 }
 
 export interface SendSignatureInvitationsRequest {

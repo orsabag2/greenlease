@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { db } from '@/utils/firebase';
-import { collection, addDoc, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, setDoc, query, where, getDocs, updateDoc } from 'firebase/firestore';
 import nodemailer from 'nodemailer';
 import { randomBytes } from 'crypto';
 
@@ -25,6 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const contractData = contractDoc.data();
+    console.log('Contract data for address extraction:', JSON.stringify(contractData, null, 2));
     const invitations = [];
 
     // Create invitations for each signer
@@ -107,14 +108,32 @@ async function sendInvitationEmail(signer: any, token: string, contractData: any
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
   const signUrl = `${baseUrl}/signature/${token}`;
   
-  // Extract property address
+  // Extract property address - handle different data structures
+  // Try to get address from flattened structure first, then from nested structure
+  let street = contractData.street;
+  let buildingNumber = contractData.buildingNumber;
+  let apartmentNumber = contractData.apartmentNumber;
+  let propertyCity = contractData.propertyCity;
+  
+  // If not found in flattened structure, try nested answers structure
+  if (!street && contractData.answers) {
+    street = contractData.answers.street;
+    buildingNumber = contractData.answers.buildingNumber;
+    apartmentNumber = contractData.answers.apartmentNumber;
+    propertyCity = contractData.answers.propertyCity;
+  }
+  
   const addressParts = [
-    contractData.street,
-    contractData.buildingNumber,
-    contractData.apartmentNumber ? `דירה ${contractData.apartmentNumber}` : '',
-    contractData.propertyCity
+    street,
+    buildingNumber,
+    apartmentNumber ? `דירה ${apartmentNumber}` : '',
+    propertyCity
   ].filter(Boolean);
-  const propertyAddress = addressParts.join(' ');
+  
+  const propertyAddress = addressParts.length > 0 ? addressParts.join(' ') : 'נכס';
+  
+  console.log('Address parts:', { street, buildingNumber, apartmentNumber, propertyCity });
+  console.log('Final property address:', propertyAddress);
   
   const emailHtml = `
     <!DOCTYPE html>
@@ -311,7 +330,7 @@ async function sendInvitationEmail(signer: any, token: string, contractData: any
   await transporter.sendMail({
     from: `"GreenLease" <${process.env.GMAIL_USER}>`,
     to: signer.email,
-    subject: `הזמנה לחתימה דיגיטלית - חוזה שכירות ${propertyAddress}`,
+    subject: `הזמנה לחתימה דיגיטלית - כתובת הנכס: ${propertyAddress}`,
     html: emailHtml,
     attachments: [
       {

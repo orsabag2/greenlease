@@ -5,6 +5,7 @@ import type { User } from 'firebase/auth';
 import { collection, query, where, getDocs, doc, getDoc, onSnapshot, setDoc, deleteDoc } from 'firebase/firestore';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import SignatureProgressBar from '../../components/SignatureProgressBar';
 
 interface ContractData {
   id: string;
@@ -39,6 +40,99 @@ export default function DashboardPage() {
   const [showDeleteAllConfirmation, setShowDeleteAllConfirmation] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+
+  // Contract Edit Button Component
+  const ContractEditButton = ({ contract }: { contract: ContractData }) => {
+    const [hasSignedSignatures, setHasSignedSignatures] = useState(false);
+    const [allSigned, setAllSigned] = useState(false);
+    const [signers, setSigners] = useState<any[]>([]);
+    const [loadingSignatures, setLoadingSignatures] = useState(false);
+
+    useEffect(() => {
+      const checkSignatures = async () => {
+        setLoadingSignatures(true);
+        try {
+          const response = await fetch(`/api/signature/status?contractId=${contract.id}`);
+          if (response.ok) {
+            const data = await response.json();
+            setSigners(data.signers || []);
+            const hasSigned = data.signers?.some((signer: any) => signer.status === 'signed') || false;
+            const allParticipantsSigned = data.signers?.length > 0 && data.signers.every((signer: any) => signer.status === 'signed');
+            setHasSignedSignatures(hasSigned);
+            setAllSigned(allParticipantsSigned);
+          }
+        } catch (error) {
+          console.error('Error checking signatures:', error);
+        } finally {
+          setLoadingSignatures(false);
+        }
+      };
+
+      checkSignatures();
+    }, [contract.id]);
+
+    // Debug logging
+    console.log('Dashboard Edit Button Debug (ContractEditButton):', {
+      contractId: contract.id,
+      loadingSignatures,
+      hasSignedSignatures,
+      allSigned,
+      signersLength: signers.length,
+      signers: signers.map(s => ({ status: s.status, name: s.name, type: s.signerType })),
+      contractStatus: contract.status,
+      isLocked: contract.isLocked
+    });
+
+    if (loadingSignatures) {
+      return (
+        <div className="flex items-center w-full px-3 py-2 text-sm text-gray-400">
+          בודק חתימות...
+        </div>
+      );
+    }
+
+    // Hide the edit button when all parties have signed the contract
+    if (allSigned) {
+      console.log('Edit button hidden - all parties have signed the contract');
+      return null; // Hide the edit button completely when all signatures are complete
+    }
+
+    return (
+      <button
+        onClick={() => {
+          const remainingEdits = (contract.maxEdits || 3) - (contract.editCount || 0);
+          
+          if (remainingEdits <= 0) {
+            alert('לא ניתן לערוך חוזה זה יותר. החוזה נעול.');
+            return;
+          }
+          
+          // Show confirmation dialog with signature warning
+          let confirmMessage = `יש לך ${remainingEdits} עריכות שנותרו. האם אתה בטוח שברצונך לערוך?`;
+          
+          // Add warning if there are sent (but not signed) invitations
+          const hasSentInvitations = signers?.some((signer: any) => signer.status === 'sent') || false;
+          if (hasSentInvitations) {
+            confirmMessage = `אזהרה: קיימות הזמנות לחתימה שנשלחו. עריכת החוזה תבטל את ההזמנות הקיימות.\n\n${confirmMessage}`;
+          }
+          
+          if (confirm(confirmMessage)) {
+            localStorage.setItem('editingFromDashboard', 'true');
+            localStorage.setItem('contractMeta', JSON.stringify(contract.answers));
+            localStorage.setItem('currentContractId', contract.id);
+            setOpenMenuId(null); // Close menu
+            router.push('/');
+          }
+        }}
+        className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+      >
+        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+        ערוך חוזה ({(contract.maxEdits || 3) - (contract.editCount || 0)} שנותרו)
+      </button>
+    );
+  };
 
   // Check if user should be directed to a specific tab
   useEffect(() => {
@@ -581,33 +675,9 @@ export default function DashboardPage() {
                                 </button>
                                 {openMenuId === contract.id && (
                                   <div className="absolute top-full left-0 mt-1 w-32 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-30">
-                                    {/* Edit option for paid contracts */}
+                                    {/* Edit option for paid contracts - only show if contract is not locked and has no signed signatures */}
                                     {contract.status === 'paid' && !contract.isLocked && (
-                                      <button
-                                        onClick={() => {
-                                          const remainingEdits = (contract.maxEdits || 3) - (contract.editCount || 0);
-                                          
-                                          if (remainingEdits <= 0) {
-                                            alert('לא ניתן לערוך חוזה זה יותר. החוזה נעול.');
-                                            return;
-                                          }
-                                          
-                                          // Show confirmation dialog
-                                          if (confirm(`יש לך ${remainingEdits} עריכות שנותרו. האם אתה בטוח שברצונך לערוך?`)) {
-                                            localStorage.setItem('editingFromDashboard', 'true');
-                                            localStorage.setItem('contractMeta', JSON.stringify(contract.answers));
-                                            localStorage.setItem('currentContractId', contract.id);
-                                            setOpenMenuId(null); // Close menu
-                                            router.push('/');
-                                          }
-                                        }}
-                                        className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                                      >
-                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
-                                        ערוך חוזה ({(contract.maxEdits || 3) - (contract.editCount || 0)} שנותרו)
-                                      </button>
+                                      <ContractEditButton contract={contract} />
                                     )}
                                     {contract.status !== 'archived' && (
                                       <button
@@ -673,6 +743,13 @@ export default function DashboardPage() {
                               <div className="flex justify-between text-sm text-gray-600 mb-3">
                                 <span>עריכה אחרונה:</span>
                                 <span>{contract.lastEditDate.toLocaleDateString('he-IL')}</span>
+                              </div>
+                            )}
+                            
+                            {/* Signature Progress Bar for Ready Contracts */}
+                            {(contract.status === 'paid' || contract.status === 'completed') && (
+                              <div className="mb-4">
+                                <SignatureProgressBar contractId={contract.id} compact={true} />
                               </div>
                             )}
                             
@@ -766,6 +843,7 @@ export default function DashboardPage() {
                                   >
                                     צפה בחוזה
                                   </button>
+
                                 </div>
                               )}
                             </div>

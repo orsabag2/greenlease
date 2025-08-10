@@ -145,7 +145,7 @@ const GmailSignIn: React.FC = () => {
               marginTop: '2px',
               width: '18px',
               height: '18px',
-              accentColor: '#4A1D96',
+              accentColor: '#38E18E',
               flexShrink: 0
             }}
           />
@@ -175,7 +175,7 @@ const GmailSignIn: React.FC = () => {
               marginTop: '2px',
               width: '18px',
               height: '18px',
-              accentColor: '#4A1D96',
+              accentColor: '#38E18E',
               flexShrink: 0
             }}
           />

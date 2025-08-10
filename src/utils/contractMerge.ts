@@ -163,7 +163,7 @@ export default function contractMerge(template: string, data: MergeData): string
         section += `• ערב 2: שם: ${data['guarantor2Name'] || '______________'} | ת"ז: ${data['guarantor2Id'] || '______________'} | כתובת: ${data['guarantor2Address'] || '______________'} | טלפון: ${data['guarantor2Phone'] || '______________'}\n`;
         section += `<span class="signature-placeholder">ערב שני</span>\n`;
       }
-      section += '\nתאריך חתימה: ________________________';
+
       return section;
     }
     return '';
@@ -332,6 +332,100 @@ export default function contractMerge(template: string, data: MergeData): string
     }
   });
 
+  // Generate lateInterestClause for 5.1 BEFORE general placeholder replacement
+  console.log('Section 5 Debug - Full data object:', data);
+  console.log('Section 5 Debug - lateInterestType:', data['lateInterestType']);
+  console.log('Section 5 Debug - evacuationPenaltyType:', data['evacuationPenaltyType']);
+  console.log('Section 5 Debug - All keys in data:', Object.keys(data));
+  
+  let lateInterestClause = '';
+  switch (data['lateInterestType']) {
+    case 'לא לגבות ריבית בכלל':
+      lateInterestClause = 'בגין איחור בתשלום מכל סוג שהוא, לא תגבה ריבית פיגורים.';
+      break;
+    case '0.03% ליום (סטנדרטי)':
+      lateInterestClause = 'בגין איחור בתשלום מכל סוג שהוא, ישלם השוכר ריבית פיגורים בשיעור 0.03% ליום.';
+      break;
+    case 'סכום קבוע':
+      lateInterestClause = `בגין איחור בתשלום מכל סוג שהוא, ישלם השוכר ריבית פיגורים בסך <strong>${data['lateInterestFixedAmount'] || '-'} ש"ח</strong> ליום.`;
+      break;
+    default:
+      lateInterestClause = '';
+  }
+
+  // Generate evacuationPenaltyClause for 5.3 BEFORE general placeholder replacement
+  let evacuationPenaltyClause = '';
+  const evacuationPenaltyType = data['evacuationPenaltyType'];
+  console.log('Section 5 Debug - evacuationPenaltyType value:', evacuationPenaltyType);
+  
+  switch (evacuationPenaltyType) {
+    case 'לא לגבות דמי שימוש בכלל':
+      evacuationPenaltyClause = 'בגין איחור בפינוי המושכר, לא ייגבו דמי שימוש.';
+      break;
+    case 'לגבות 2% מדמי השכירות היומיים':
+      evacuationPenaltyClause = 'בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך 2% מדמי השכירות היומיים עבור כל יום איחור.';
+      break;
+    case 'לגבות 5% מדמי השכירות היומיים':
+      evacuationPenaltyClause = 'בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך 5% מדמי השכירות היומיים עבור כל יום איחור.';
+      break;
+    case 'לגבות סכום קבוע ליום':
+      evacuationPenaltyClause = `בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך <strong>${data['evacuationPenaltyFixedAmount'] || '-'} ש"ח</strong> ליום עבור כל יום איחור.`;
+      break;
+    default:
+      // If user hasn't selected anything, show a meaningful default
+      evacuationPenaltyClause = 'בגין איחור בפינוי המושכר לאחר תום תקופת השכירות, ישלם השוכר דמי שימוש בהתאם לשיקול דעת המשכיר ולהוראות הדין.';
+      console.log('Section 5 Debug - Using default evacuationPenaltyClause because no user selection found');
+  }
+
+  // Robustly replace/remove 5.1 and 5.3 lines with placeholders, regardless of whitespace
+  const lateInterestRegex = /^.*5\.1.*\{\{lateInterestClause\}\}.*$/gm;
+  const evacuationPenaltyRegex = /^.*5\.3.*\{\{evacuationPenaltyClause\}\}.*$/gm;
+
+  // Always provide content for section 5, even if clauses are empty
+  console.log('Section 5 Debug - Generated lateInterestClause:', lateInterestClause);
+  console.log('Section 5 Debug - Generated evacuationPenaltyClause:', evacuationPenaltyClause);
+  
+  if (lateInterestClause) {
+    processed = processed.replace(lateInterestRegex, `5.1 ${lateInterestClause}`);
+    console.log('Section 5 Debug - Applied custom lateInterestClause');
+  } else {
+    // Provide default clause when no specific late interest is selected
+    processed = processed.replace(lateInterestRegex, '5.1 בגין איחור בתשלום מכל סוג שהוא, יחולו הוראות הדין.');
+    console.log('Section 5 Debug - Applied default lateInterestClause');
+  }
+
+  // FORCE COMPLETE SECTION 5 REPLACEMENT - Build entire section 5 from scratch
+  // Only include 5.3 if user didn't select "לא לגבות דמי שימוש בכלל"
+  const shouldInclude53 = evacuationPenaltyType !== 'לא לגבות דמי שימוש בכלל';
+  
+  let completeSection5 = `5. פיצויים, ריבית והצמדה
+
+5.1 ${lateInterestClause || 'בגין איחור בתשלום מכל סוג שהוא, יחולו הוראות הדין.'}
+5.2 בגין הפרת התחייבויות כספיות, יישום הסכם זה יהיה בהתאם להוראות הדין.`;
+
+  if (shouldInclude53) {
+    completeSection5 += `\n5.3 ${evacuationPenaltyClause}`;
+    console.log('Section 5 Debug - Including 5.3 with evacuation penalty');
+  } else {
+    console.log('Section 5 Debug - Hiding 5.3 because user selected no evacuation charges');
+  }
+
+  console.log('Section 5 Debug - Complete section 5 built:', completeSection5);
+
+  // Replace the entire section 5 (from header to separator)
+  const section5Pattern = /5\. פיצויים, ריבית והצמדה[\s\S]*?(?=⸻)/;
+  if (processed.match(section5Pattern)) {
+    processed = processed.replace(section5Pattern, completeSection5 + '\n\n');
+    console.log('Section 5 Debug - REPLACED entire section 5');
+  } else {
+    // If section 5 doesn't exist, insert it before section 6
+    const section6Index = processed.indexOf('6. תחזוקת המושכר ותיקונים');
+    if (section6Index !== -1) {
+      processed = processed.slice(0, section6Index) + completeSection5 + '\n\n⸻\n\n' + processed.slice(section6Index);
+      console.log('Section 5 Debug - INSERTED entire section 5 before section 6');
+    }
+  }
+
   // Replace all remaining placeholders with values
   processed = processed.replace(/{{([^}]+)}}/g, (match, key) => {
     const value = data[key.trim()];
@@ -349,57 +443,6 @@ export default function contractMerge(template: string, data: MergeData): string
     // Wrap the value in bold tags
     return `<strong>${displayValue}</strong>`;
   });
-
-  // Generate lateInterestClause for 5.1
-  let lateInterestClause = '';
-  switch (data['lateInterestType']) {
-    case 'לא לגבות ריבית בכלל':
-      lateInterestClause = 'בגין איחור בתשלום מכל סוג שהוא, לא תגבה ריבית פיגורים.';
-      break;
-    case '0.03% ליום (סטנדרטי)':
-      lateInterestClause = 'בגין איחור בתשלום מכל סוג שהוא, ישלם השוכר ריבית פיגורים בשיעור 0.03% ליום.';
-      break;
-    case 'סכום קבוע':
-      lateInterestClause = `בגין איחור בתשלום מכל סוג שהוא, ישלם השוכר ריבית פיגורים בסך <strong>${data['lateInterestFixedAmount'] || '-'} ש"ח</strong> ליום.`;
-      break;
-    default:
-      lateInterestClause = '';
-  }
-
-  // Robustly replace/remove 5.1 lines with placeholders, regardless of whitespace
-  const lateInterestRegex = /^.*5\.1.*\{\{lateInterestClause\}\}.*$/gm;
-  const evacuationPenaltyRegex = /^.*5\.3.*\{\{evacuationPenaltyClause\}\}.*$/gm;
-
-  if (lateInterestClause) {
-    processed = processed.replace(lateInterestRegex, `5.1 ${lateInterestClause}`);
-  } else {
-    processed = processed.replace(lateInterestRegex, '');
-  }
-
-  // Generate evacuationPenaltyClause for 5.3
-  let evacuationPenaltyClause = '';
-  switch (data['evacuationPenaltyType']) {
-    case 'לא לגבות דמי שימוש בכלל':
-      evacuationPenaltyClause = 'בגין איחור בפינוי המושכר, לא ייגבו דמי שימוש.';
-      break;
-    case 'לגבות 2% מדמי השכירות היומיים':
-      evacuationPenaltyClause = 'בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך 2% מדמי השכירות היומיים עבור כל יום איחור.';
-      break;
-    case 'לגבות 5% מדמי השכירות היומיים':
-      evacuationPenaltyClause = 'בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך 5% מדמי השכירות היומיים עבור כל יום איחור.';
-      break;
-    case 'לגבות סכום קבוע ליום':
-      evacuationPenaltyClause = `בגין איחור בפינוי המושכר, ישלם השוכר דמי שימוש בסך <strong>${data['evacuationPenaltyFixedAmount'] || '-'} ש"ח</strong> ליום עבור כל יום איחור.`;
-      break;
-    default:
-      evacuationPenaltyClause = '';
-  }
-
-  if (evacuationPenaltyClause) {
-    processed = processed.replace(evacuationPenaltyRegex, `5.3 ${evacuationPenaltyClause}`);
-  } else {
-    processed = processed.replace(evacuationPenaltyRegex, '');
-  }
 
   // --- Custom logic for section 6: Maintenance and Repairs ---
   processed = processed.replace(/6\.1 המשכיר יהיה אחראי לטיפול בתקלות בצנרת, חשמל, מזגן ודוד חימום\./g, () => {

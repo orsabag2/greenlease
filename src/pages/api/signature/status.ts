@@ -72,7 +72,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                       email: invitation?.signerEmail || landlord.landlordEmail || '',
                       signerType: 'landlord',
                       signerId: signerId,
-                      invitationId: invitation?.id
+                      invitationId: invitation?.id,
+                      signatureImage: invitation?.signatureImage || null
                     };
                     
                     console.log('API: Created landlord signer:', signer);
@@ -92,7 +93,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     email: invitation?.signerEmail || answers.landlordEmail || '',
                     signerType: 'landlord',
                     signerId: signerId,
-                    invitationId: invitation?.id
+                    invitationId: invitation?.id,
+                    signatureImage: invitation?.signatureImage || null
                   };
                   
                   console.log('API: Created landlord signer:', signer);
@@ -112,13 +114,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     );
                     
                     signers.push({
-                      role: 'השוכר',
+                      role: answers.tenants.length === 1 ? 'השוכר' : `שוכר ${index + 1}`,
                       name: tenant.tenantName || '',
                       status: invitation?.status || 'not_sent',
                       email: invitation?.signerEmail || tenant.tenantEmail || '',
                       signerType: 'tenant',
                       signerId: signerId,
-                      invitationId: invitation?.id
+                      invitationId: invitation?.id,
+                      signatureImage: invitation?.signatureImage || null
                     });
                   });
                 } else if (answers.tenantName) {
@@ -134,7 +137,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                     email: invitation?.signerEmail || answers.tenantEmail || '',
                     signerType: 'tenant',
                     signerId: signerId,
-                    invitationId: invitation?.id
+                    invitationId: invitation?.id,
+                    signatureImage: invitation?.signatureImage || null
                   });
                 }
 
@@ -160,17 +164,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                         email: invitation?.signerEmail || guarantorEmail || '',
                         signerType: 'guarantor',
                         signerId: signerId,
-                        invitationId: invitation?.id
+                        invitationId: invitation?.id,
+                        signatureImage: invitation?.signatureImage || null
                       });
                     }
                   }
                 }
 
+    // Filter out signers with empty names
+    const validSigners = signers.filter(signer => signer.name && signer.name.trim() !== '');
+    
     console.log('API: Created signers:', signers);
-    console.log('API: Signers with status:', signers.map(s => ({ name: s.name, status: s.status, email: s.email })));
+    console.log('API: Valid signers (with names):', validSigners);
+    console.log('API: Signers with status:', validSigners.map(s => ({ name: s.name, status: s.status, email: s.email })));
     
     res.status(200).json({
-      signers,
+      signers: validSigners,
       contractData: {
         street: answers.street || '',
         buildingNumber: answers.buildingNumber || '',
